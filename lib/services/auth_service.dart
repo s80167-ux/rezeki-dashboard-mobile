@@ -123,10 +123,7 @@ class AuthService {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: jsonEncode({
-        'email': email,
-        'password': password,
-      }),
+      body: jsonEncode({'email': email, 'password': password}),
     );
 
     final decoded = _decodeResponse(response);
@@ -152,7 +149,9 @@ class AuthService {
     );
 
     if (authSession.user.id.isEmpty) {
-      throw const AuthServiceException('Login response did not include a user.');
+      throw const AuthServiceException(
+        'Login response did not include a user.',
+      );
     }
 
     await _saveSession(authSession);
@@ -171,21 +170,115 @@ class AuthService {
       }
     }
 
+    await clearLocalSession();
+  }
+
+  Future<void> clearLocalSession({String? message}) async {
     await _preferences?.remove(_sessionKey);
     session.value = null;
+    authError.value = message;
+  }
+
+  Future<http.Response> authenticatedGet(Uri url) async {
+    final currentSession = session.value;
+    if (currentSession == null) {
+      throw const AuthServiceException('Please log in again.');
+    }
+
+    try {
+      final response = await http
+          .get(url, headers: _authHeaders(currentSession))
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 401) {
+        const message = 'Your session expired. Please log in again.';
+        await clearLocalSession(message: message);
+        throw const AuthServiceException(message);
+      }
+
+      return response;
+    } on TimeoutException {
+      throw const AuthServiceException(
+        'Server is not responding. Check your network or API URL.',
+      );
+    } on SocketException {
+      throw const AuthServiceException(
+        'Cannot connect to server. Check your network or API URL.',
+      );
+    } on http.ClientException catch (e) {
+      throw AuthServiceException('Network error: ${e.message}');
+    }
+  }
+
+  Future<http.Response> authenticatedPost(Uri url, {Object? body}) async {
+    final currentSession = session.value;
+    if (currentSession == null) {
+      throw const AuthServiceException('Please log in again.');
+    }
+
+    try {
+      final response = await http
+          .post(url, headers: _authHeaders(currentSession), body: body)
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 401) {
+        const message = 'Your session expired. Please log in again.';
+        await clearLocalSession(message: message);
+        throw const AuthServiceException(message);
+      }
+
+      return response;
+    } on TimeoutException {
+      throw const AuthServiceException(
+        'Server is not responding. Check your network or API URL.',
+      );
+    } on SocketException {
+      throw const AuthServiceException(
+        'Cannot connect to server. Check your network or API URL.',
+      );
+    } on http.ClientException catch (e) {
+      throw AuthServiceException('Network error: ${e.message}');
+    }
+  }
+
+  Future<http.Response> authenticatedPatch(Uri url, {Object? body}) async {
+    final currentSession = session.value;
+    if (currentSession == null) {
+      throw const AuthServiceException('Please log in again.');
+    }
+
+    try {
+      final response = await http
+          .patch(url, headers: _authHeaders(currentSession), body: body)
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 401) {
+        const message = 'Your session expired. Please log in again.';
+        await clearLocalSession(message: message);
+        throw const AuthServiceException(message);
+      }
+
+      return response;
+    } on TimeoutException {
+      throw const AuthServiceException(
+        'Server is not responding. Check your network or API URL.',
+      );
+    } on SocketException {
+      throw const AuthServiceException(
+        'Cannot connect to server. Check your network or API URL.',
+      );
+    } on http.ClientException catch (e) {
+      throw AuthServiceException('Network error: ${e.message}');
+    }
   }
 
   Future<void> startGoogleSignIn() async {
-    if (AppConfig.googleClientId.isEmpty) {
+    if (AppConfig.googleServerClientId.isEmpty) {
       throw const AuthServiceException(
-        'Google sign-in is not configured. Set REZEKI_GOOGLE_CLIENT_ID.',
+        'Google sign-in is not configured. Set REZEKI_GOOGLE_SERVER_CLIENT_ID.',
       );
     }
 
     authError.value = null;
     final googleSignIn = GoogleSignIn(
       scopes: const ['email', 'profile'],
-      clientId: AppConfig.googleClientId,
       serverClientId: AppConfig.googleServerClientId,
     );
 
@@ -219,9 +312,7 @@ class AuthService {
   Future<void> startBrowserGoogleSignIn() async {
     authError.value = null;
     final startUrl = AppConfig.apiUri('/auth/google/start').replace(
-      queryParameters: {
-        'mobile_redirect_to': AppConfig.mobileAuthCallbackUrl,
-      },
+      queryParameters: {'mobile_redirect_to': AppConfig.mobileAuthCallbackUrl},
     );
 
     final launched = await launchUrl(
@@ -241,9 +332,7 @@ class AuthService {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: jsonEncode({
-        'idToken': idToken,
-      }),
+      body: jsonEncode({'idToken': idToken}),
     );
 
     final decoded = _decodeResponse(response);
@@ -252,8 +341,11 @@ class AuthService {
     }
 
     final data = decoded['data'];
-    if (data is! Map<String, dynamic> || data['user'] is! Map<String, dynamic>) {
-      throw const AuthServiceException('Google login response was not recognized.');
+    if (data is! Map<String, dynamic> ||
+        data['user'] is! Map<String, dynamic>) {
+      throw const AuthServiceException(
+        'Google login response was not recognized.',
+      );
     }
 
     final authSession = AuthSession(
@@ -395,7 +487,10 @@ class AuthService {
   }
 
   Future<void> _saveSession(AuthSession authSession) async {
-    await _preferences?.setString(_sessionKey, jsonEncode(authSession.toJson()));
+    await _preferences?.setString(
+      _sessionKey,
+      jsonEncode(authSession.toJson()),
+    );
     session.value = authSession;
   }
 

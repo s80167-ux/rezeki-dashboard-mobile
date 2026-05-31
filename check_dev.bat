@@ -1,9 +1,6 @@
 @echo off
 setlocal
 
-set "REZEKI_API_BASE_URL=http://192.168.68.139:4000/api"
-set "REZEKI_DEVICE_ID=HMRG8HA679WGRO6H"
-
 if exist "%~dp0run_config.local.bat" (
   call "%~dp0run_config.local.bat"
 )
@@ -17,10 +14,15 @@ if "%REZEKI_GOOGLE_SERVER_CLIENT_ID%"=="" (
   exit /b 1
 )
 
-echo Running Rezeki Dashboard...
+echo Checking Rezeki Dashboard Flutter app...
 echo API: %REZEKI_API_BASE_URL%
-echo Device: %REZEKI_DEVICE_ID%
+echo.
 
-flutter run -d "%REZEKI_DEVICE_ID%" ^
-  --dart-define=REZEKI_API_BASE_URL="%REZEKI_API_BASE_URL%" ^
-  --dart-define=REZEKI_GOOGLE_SERVER_CLIENT_ID="%REZEKI_GOOGLE_SERVER_CLIENT_ID%"
+flutter analyze
+if errorlevel 1 exit /b 1
+
+flutter test
+if errorlevel 1 exit /b 1
+
+echo.
+echo Checks passed.

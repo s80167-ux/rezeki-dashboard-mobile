@@ -1,0 +1,5 @@
+#!/bin/bash
+
+export REZEKI_API_BASE_URL="http://192.168.68.139:4000/api"
+export REZEKI_DEVICE_ID="HMRG8HA679WGRO6H"
+export REZEKI_GOOGLE_SERVER_CLIENT_ID="YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"

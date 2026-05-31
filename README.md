@@ -2,6 +2,28 @@
 
 A new Flutter project.
 
+## Local Run
+
+Create a local config file from `run_config.example.bat`:
+
+```powershell
+copy run_config.example.bat run_config.local.bat
+```
+
+Edit `run_config.local.bat` and set `REZEKI_GOOGLE_SERVER_CLIENT_ID` to the Google Web OAuth client ID.
+
+Then run:
+
+```powershell
+.\run_dev.bat
+```
+
+Before reinstalling on the phone, run the short check script:
+
+```powershell
+.\check_dev.bat
+```
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.

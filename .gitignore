@@ -33,6 +33,10 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Local run config with machine-specific OAuth/API values
+run_config.local.bat
+run_config.local.sh
+
 # Symbolication related
 app.*.symbols
 

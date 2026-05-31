@@ -9,18 +9,9 @@ class AppConfig {
   static const mobileAuthCallbackUrl =
       'com.example.rezeki_dashboard_app://login-callback/';
 
-  /// OAuth client ID for the current platform (used by the Google Sign-In SDK).
-  static const googleClientId = String.fromEnvironment(
-    'REZEKI_GOOGLE_CLIENT_ID',
-    defaultValue:
-        '462104114788-i2a214q02ck5i162gmf5as9epiaokgj0.apps.googleusercontent.com',
-  );
-
-  /// OAuth web client ID used by the backend to verify ID tokens.
+  /// OAuth web client ID used by Google Sign-In and backend ID token exchange.
   static const googleServerClientId = String.fromEnvironment(
     'REZEKI_GOOGLE_SERVER_CLIENT_ID',
-    defaultValue:
-        '462104114788-i2a214q02ck5i162gmf5as9epiaokgj0.apps.googleusercontent.com',
   );
 
   static Uri apiUri(String path) {
