@@ -509,18 +509,30 @@ class _InboxPageState extends State<InboxPage> {
   late Future<List<InboxConversation>> _conversationsFuture;
   String _inboxSearch = '';
   String _inboxFilter = 'All';
+  int? _activityDays = 30;
   final List<String> _inboxFilters = ['All', 'Unread', 'WhatsApp', 'Social'];
 
   @override
   void initState() {
     super.initState();
-    _conversationsFuture = _inboxService.fetchConversations();
+    _conversationsFuture = _inboxService.fetchConversations(
+      days: _activityDays,
+    );
   }
 
   Future<void> _refresh() async {
-    final future = _inboxService.fetchConversations();
+    final future = _inboxService.fetchConversations(days: _activityDays);
     setState(() => _conversationsFuture = future);
     await future;
+  }
+
+  void _setActivityDays(int? days) {
+    if (_activityDays == days) return;
+    final future = _inboxService.fetchConversations(days: days);
+    setState(() {
+      _activityDays = days;
+      _conversationsFuture = future;
+    });
   }
 
   List<InboxConversation> _visibleConversations(
@@ -558,17 +570,32 @@ class _InboxPageState extends State<InboxPage> {
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20, 20, 72, 8),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Text(
-                              'Inbox',
-                              style: Theme.of(context).textTheme.headlineMedium,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Inbox',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.headlineMedium,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '$unreadCount unread messages',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium,
+                                  ),
+                                ],
+                              ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '$unreadCount unread messages',
-                              style: Theme.of(context).textTheme.bodyMedium,
+                            _ActivityRangeMenu(
+                              selectedDays: _activityDays,
+                              onChanged: _setActivityDays,
                             ),
                           ],
                         ),
@@ -657,6 +684,7 @@ class _InboxPageState extends State<InboxPage> {
                                 unreadCount: item.unreadCount,
                                 isUnread: item.isUnread,
                                 avatarUrl: item.avatarUrl,
+                                sourceLabel: item.sourceDescription,
                                 onTap: () => _openConversation(item),
                               ),
                             );
@@ -687,7 +715,7 @@ class _InboxPageState extends State<InboxPage> {
       ),
     );
     if (!mounted) return;
-    final future = _inboxService.fetchConversations();
+    final future = _inboxService.fetchConversations(days: _activityDays);
     setState(() => _conversationsFuture = future);
   }
 
@@ -874,6 +902,7 @@ class ContactsPage extends StatefulWidget {
 class _ContactsPageState extends State<ContactsPage> {
   String _filter = 'All';
   String _search = '';
+  int? _activityDays = 30;
 
   final ContactsService _contactsService = ContactsService(
     authService: AuthService.instance,
@@ -883,13 +912,22 @@ class _ContactsPageState extends State<ContactsPage> {
   @override
   void initState() {
     super.initState();
-    _contactsFuture = _contactsService.fetchContacts();
+    _contactsFuture = _contactsService.fetchContacts(days: _activityDays);
   }
 
   Future<void> _refresh() async {
-    final future = _contactsService.fetchContacts();
+    final future = _contactsService.fetchContacts(days: _activityDays);
     setState(() => _contactsFuture = future);
     await future;
+  }
+
+  void _setActivityDays(int? days) {
+    if (_activityDays == days) return;
+    final future = _contactsService.fetchContacts(days: days);
+    setState(() {
+      _activityDays = days;
+      _contactsFuture = future;
+    });
   }
 
   List<CrmContact> _filteredContacts(List<CrmContact> contacts) {
@@ -947,6 +985,11 @@ class _ContactsPageState extends State<ContactsPage> {
                                 ],
                               ),
                             ),
+                            _ActivityRangeMenu(
+                              selectedDays: _activityDays,
+                              onChanged: _setActivityDays,
+                            ),
+                            const SizedBox(width: 4),
                             IconButton(
                               icon: const Icon(
                                 Icons.add_circle_outline,
@@ -1066,7 +1109,7 @@ class _ContactsPageState extends State<ContactsPage> {
       ),
     );
     if (!mounted) return;
-    final future = _contactsService.fetchContacts();
+    final future = _contactsService.fetchContacts(days: _activityDays);
     setState(() => _contactsFuture = future);
   }
 
@@ -1076,7 +1119,7 @@ class _ContactsPageState extends State<ContactsPage> {
     );
 
     if (created == null || !mounted) return;
-    final future = _contactsService.fetchContacts();
+    final future = _contactsService.fetchContacts(days: _activityDays);
     setState(() => _contactsFuture = future);
     ScaffoldMessenger.of(
       context,
@@ -1933,6 +1976,71 @@ class _SettingsRow extends StatelessWidget {
   }
 }
 
+class _ActivityRangeMenu extends StatelessWidget {
+  const _ActivityRangeMenu({
+    required this.selectedDays,
+    required this.onChanged,
+  });
+
+  final int? selectedDays;
+  final ValueChanged<int?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<int?>(
+      tooltip: 'Activity range',
+      initialValue: selectedDays,
+      onSelected: onChanged,
+      itemBuilder: (context) => const [
+        PopupMenuItem<int?>(value: 7, child: Text('Last 7 days')),
+        PopupMenuItem<int?>(value: 30, child: Text('Last 30 days')),
+        PopupMenuItem<int?>(value: 90, child: Text('Last 90 days')),
+        PopupMenuItem<int?>(value: null, child: Text('All time')),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(RezekiRadii.input),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.date_range_outlined,
+              color: AppColors.textSecondary,
+              size: 18,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              _label,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String get _label {
+    switch (selectedDays) {
+      case 7:
+        return '7d';
+      case 30:
+        return '30d';
+      case 90:
+        return '90d';
+      default:
+        return 'All';
+    }
+  }
+}
+
 class _PageStateMessage extends StatelessWidget {
   const _PageStateMessage({
     required this.icon,
@@ -2029,13 +2137,27 @@ class _ThreadHeader extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  conversation.channel?.toUpperCase() ?? 'INBOX',
-                  style: const TextStyle(
-                    color: AppColors.textTertiary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
+                Row(
+                  children: [
+                    Icon(
+                      _conversationSourceIcon(conversation.channel),
+                      color: AppColors.textTertiary,
+                      size: 13,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'Source: ${conversation.sourceDescription}',
+                        style: const TextStyle(
+                          color: AppColors.textTertiary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -2043,6 +2165,19 @@ class _ThreadHeader extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+IconData _conversationSourceIcon(String? channel) {
+  switch (channel) {
+    case 'facebook':
+      return Icons.facebook_outlined;
+    case 'instagram':
+    case 'social':
+      return Icons.alternate_email_outlined;
+    case 'whatsapp':
+    default:
+      return Icons.chat_outlined;
   }
 }
 
@@ -2648,6 +2783,7 @@ class _MessageCard extends StatelessWidget {
   final int unreadCount;
   final bool isUnread;
   final String? avatarUrl;
+  final String? sourceLabel;
   final VoidCallback? onTap;
 
   const _MessageCard({
@@ -2657,6 +2793,7 @@ class _MessageCard extends StatelessWidget {
     required this.unreadCount,
     required this.isUnread,
     this.avatarUrl,
+    this.sourceLabel,
     this.onTap,
   });
 
@@ -2707,6 +2844,31 @@ class _MessageCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 6),
+                    if (sourceLabel != null && sourceLabel!.isNotEmpty) ...[
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.account_tree_outlined,
+                            size: 13,
+                            color: AppColors.textTertiary,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              sourceLabel!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textTertiary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                    ],
                     Row(
                       children: [
                         Expanded(

@@ -150,12 +150,15 @@ class ContactsService {
 
   final AuthService authService;
 
-  Future<List<CrmContact>> fetchContacts() async {
+  Future<List<CrmContact>> fetchContacts({int? days}) async {
     final session = authService.session.value;
     final query = <String, String>{};
     final organizationId = session?.user.organizationId;
     if (organizationId != null && organizationId.isNotEmpty) {
       query['organization_id'] = organizationId;
+    }
+    if (days != null) {
+      query['days'] = days.toString();
     }
 
     final url = AppConfig.apiUri(

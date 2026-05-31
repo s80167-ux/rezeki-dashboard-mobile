@@ -10,6 +10,7 @@ class InboxConversation {
     required this.lastMessagePreview,
     required this.unreadCount,
     this.whatsappAccountId,
+    this.whatsappAccountLabel,
     this.lastMessageAt,
     this.channel,
     this.avatarUrl,
@@ -29,6 +30,9 @@ class InboxConversation {
       whatsappAccountId: _readNullableString(
         json['whatsapp_account_id'] ?? json['whatsappAccountId'],
       ),
+      whatsappAccountLabel: _readNullableString(
+        json['whatsapp_account_label'] ?? json['whatsappAccountLabel'],
+      ),
       lastMessageAt: _readDate(
         json['last_message_at'] ?? json['lastMessageAt'],
       ),
@@ -44,9 +48,47 @@ class InboxConversation {
   final String lastMessagePreview;
   final int unreadCount;
   final String? whatsappAccountId;
+  final String? whatsappAccountLabel;
   final DateTime? lastMessageAt;
   final String? channel;
   final String? avatarUrl;
+
+  String get sourceLabel {
+    if (whatsappAccountLabel != null && whatsappAccountLabel!.isNotEmpty) {
+      return whatsappAccountLabel!;
+    }
+
+    switch (channel) {
+      case 'whatsapp':
+      case null:
+        return whatsappAccountId == null
+            ? 'WhatsApp account not provided'
+            : 'WhatsApp ${_shortId(whatsappAccountId!)}';
+      case 'facebook':
+        return 'Facebook';
+      case 'instagram':
+        return 'Instagram';
+      case 'social':
+        return 'Social';
+      default:
+        return channel!;
+    }
+  }
+
+  String get sourceDescription {
+    final normalizedChannel = channel ?? 'whatsapp';
+    final channelLabel = normalizedChannel
+        .split('_')
+        .where((part) => part.isNotEmpty)
+        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+        .join(' ');
+
+    if (whatsappAccountId == null || whatsappAccountId!.isEmpty) {
+      return channelLabel.isEmpty ? sourceLabel : channelLabel;
+    }
+
+    return '$channelLabel • ${whatsappAccountLabel ?? _shortId(whatsappAccountId!)}';
+  }
 
   bool get isUnread => unreadCount > 0;
 
@@ -101,6 +143,11 @@ class InboxConversation {
     if (value is! String || value.isEmpty) return null;
     return DateTime.tryParse(value)?.toLocal();
   }
+
+  static String _shortId(String value) {
+    if (value.length <= 8) return value;
+    return value.substring(value.length - 8);
+  }
 }
 
 class InboxMessage {
@@ -153,12 +200,15 @@ class InboxService {
 
   final AuthService authService;
 
-  Future<List<InboxConversation>> fetchConversations() async {
+  Future<List<InboxConversation>> fetchConversations({int? days}) async {
     final session = authService.session.value;
     final query = <String, String>{};
     final organizationId = session?.user.organizationId;
     if (organizationId != null && organizationId.isNotEmpty) {
       query['organization_id'] = organizationId;
+    }
+    if (days != null) {
+      query['days'] = days.toString();
     }
 
     final url = AppConfig.apiUri(
