@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -6,6 +9,7 @@ import 'config/app_config.dart';
 import 'services/auth_service.dart';
 import 'services/contacts_service.dart';
 import 'services/inbox_service.dart';
+import 'services/leads_service.dart';
 import 'theme/rezeki_theme.dart';
 
 // =============================================================================
@@ -397,10 +401,704 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
+  final GlobalKey<_InboxPageState> _inboxKey = GlobalKey<_InboxPageState>();
+  late final List<Widget> _pages = [
+    DashboardPage(onSelectTab: _selectTab),
+    InboxPage(key: _inboxKey),
+    const ContactsPage(),
+    SalesPage(onSelectTab: _selectTab),
+    const MorePage(),
+  ];
 
-  final _pages = const [InboxPage(), ContactsPage(), SettingsPage()];
+  void _selectTab(int index) {
+    setState(() => _currentIndex = index);
+    if (index == 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _inboxKey.currentState?.refreshNow();
+      });
+    }
+  }
 
-  Future<void> _logout() async {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: _pages[_currentIndex],
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: Border(
+            top: BorderSide(color: AppColors.border.withValues(alpha: 0.6)),
+          ),
+          boxShadow: RezekiTheme.softShadow,
+        ),
+        child: NavigationBar(
+          selectedIndex: _currentIndex,
+          onDestinationSelected: (index) {
+            _selectTab(index);
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard_rounded),
+              label: 'Dashboard',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.inbox_outlined),
+              selectedIcon: Icon(Icons.inbox_rounded),
+              label: 'Inbox',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.people_outline),
+              selectedIcon: Icon(Icons.people_rounded),
+              label: 'Contacts',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.trending_up_outlined),
+              selectedIcon: Icon(Icons.trending_up_rounded),
+              label: 'Sales',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.more_horiz_outlined),
+              selectedIcon: Icon(Icons.more_horiz_rounded),
+              label: 'More',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard Page
+// ---------------------------------------------------------------------------
+
+class DashboardPage extends StatefulWidget {
+  const DashboardPage({super.key, required this.onSelectTab});
+
+  final ValueChanged<int> onSelectTab;
+
+  @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  final InboxService _inboxService = InboxService(
+    authService: AuthService.instance,
+  );
+  final ContactsService _contactsService = ContactsService(
+    authService: AuthService.instance,
+  );
+  final LeadsService _leadsService = LeadsService(
+    authService: AuthService.instance,
+  );
+  late Future<_DashboardSnapshot> _dashboardFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _dashboardFuture = _loadDashboard();
+  }
+
+  Future<_DashboardSnapshot> _loadDashboard() async {
+    List<InboxConversation> conversations = const [];
+    List<CrmContact> contacts = const [];
+    List<SalesLead> leads = const [];
+
+    try {
+      conversations = await _inboxService.fetchConversations(days: 30);
+    } catch (_) {
+      conversations = const [];
+    }
+
+    try {
+      contacts = await _contactsService.fetchContacts(days: 30);
+    } catch (_) {
+      contacts = const [];
+    }
+
+    try {
+      leads = await _leadsService.fetchLeads();
+    } catch (_) {
+      leads = const [];
+    }
+
+    return _DashboardSnapshot(
+      conversations: conversations,
+      contacts: contacts,
+      leads: leads,
+    );
+  }
+
+  Future<void> _refresh() async {
+    final future = _loadDashboard();
+    setState(() => _dashboardFuture = future);
+    await future;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = AuthService.instance.session.value;
+    final user = session?.user;
+    final displayName = user?.fullName ?? user?.email ?? 'there';
+    final organization = user?.organizationName ?? user?.organizationId;
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: RezekiTheme.appBackgroundGradient,
+        ),
+        child: SafeArea(
+          child: FutureBuilder<_DashboardSnapshot>(
+            future: _dashboardFuture,
+            builder: (context, snapshot) {
+              final data = snapshot.data ?? _DashboardSnapshot.empty;
+              final unread = data.conversations
+                  .where((conversation) => conversation.isUnread)
+                  .length;
+              final activeLeads = data.leads
+                  .where((lead) => _isActiveLeadStatus(lead.displayStatus))
+                  .length;
+
+              return RefreshIndicator(
+                onRefresh: _refresh,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Dashboard',
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineMedium,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Hi $displayName',
+                                style: Theme.of(context).textTheme.bodyLarge
+                                    ?.copyWith(
+                                      color: AppColors.textSecondary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                              if (organization != null &&
+                                  organization.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  organization,
+                                  style: const TextStyle(
+                                    color: AppColors.textTertiary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        _Avatar(
+                          initial: displayName,
+                          imageUrl: user?.avatarUrl,
+                          size: 48,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    if (snapshot.connectionState == ConnectionState.waiting &&
+                        !snapshot.hasData)
+                      const LinearProgressIndicator(minHeight: 3),
+                    const SizedBox(height: 12),
+                    GridView.count(
+                      crossAxisCount: 2,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 1.16,
+                      children: [
+                        _SummaryCard(
+                          icon: Icons.mark_chat_unread_outlined,
+                          label: 'Unread Inbox',
+                          value: unread.toString(),
+                          onTap: () => widget.onSelectTab(1),
+                        ),
+                        _SummaryCard(
+                          icon: Icons.people_outline,
+                          label: 'Total Contacts',
+                          value: data.contacts.length.toString(),
+                          onTap: () => widget.onSelectTab(2),
+                        ),
+                        _SummaryCard(
+                          icon: Icons.trending_up_outlined,
+                          label: 'Active Leads',
+                          value: activeLeads.toString(),
+                          onTap: () => widget.onSelectTab(3),
+                        ),
+                        _SummaryCard(
+                          icon: Icons.today_outlined,
+                          label: 'Today Follow-up',
+                          value: '0',
+                          helper: 'Coming soon',
+                          onTap: () => widget.onSelectTab(3),
+                        ),
+                      ],
+                    ),
+                    if (data.isEmpty &&
+                        snapshot.connectionState != ConnectionState.waiting)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 20),
+                        child: _InlineNotice(
+                          message:
+                              'Dashboard data is unavailable right now. Counts will update when inbox and contacts are available.',
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardSnapshot {
+  const _DashboardSnapshot({
+    required this.conversations,
+    required this.contacts,
+    required this.leads,
+  });
+
+  static const empty = _DashboardSnapshot(
+    conversations: [],
+    contacts: [],
+    leads: [],
+  );
+
+  final List<InboxConversation> conversations;
+  final List<CrmContact> contacts;
+  final List<SalesLead> leads;
+
+  bool get isEmpty =>
+      conversations.isEmpty && contacts.isEmpty && leads.isEmpty;
+}
+
+// ---------------------------------------------------------------------------
+// Sales Page
+// ---------------------------------------------------------------------------
+
+class SalesPage extends StatefulWidget {
+  const SalesPage({super.key, required this.onSelectTab});
+
+  final ValueChanged<int> onSelectTab;
+
+  @override
+  State<SalesPage> createState() => _SalesPageState();
+}
+
+class _SalesPageState extends State<SalesPage> {
+  static const _filters = [
+    'All',
+    'New Lead',
+    'Contacted',
+    'Interested',
+    'Processing',
+    'Closed Won',
+    'Closed Lost',
+  ];
+
+  final LeadsService _leadsService = LeadsService(
+    authService: AuthService.instance,
+  );
+  final ContactsService _contactsService = ContactsService(
+    authService: AuthService.instance,
+  );
+  late Future<_SalesSnapshot> _salesFuture;
+  String _selectedFilter = 'All';
+
+  @override
+  void initState() {
+    super.initState();
+    _salesFuture = _loadSales();
+  }
+
+  Future<_SalesSnapshot> _loadSales() async {
+    final leads = await _leadsService.fetchLeads();
+    var contactsById = const <String, CrmContact>{};
+
+    try {
+      final contacts = await _contactsService.fetchContacts(days: 30);
+      contactsById = {
+        for (final contact in contacts)
+          if (contact.id.isNotEmpty) contact.id: contact,
+      };
+    } catch (_) {
+      contactsById = const {};
+    }
+
+    return _SalesSnapshot(leads: leads, contactsById: contactsById);
+  }
+
+  Future<void> _refresh() async {
+    final future = _loadSales();
+    setState(() => _salesFuture = future);
+    await future;
+  }
+
+  List<SalesLead> _visibleLeads(List<SalesLead> leads) {
+    if (_selectedFilter == 'All') return leads;
+    return leads
+        .where(
+          (lead) => _normalizeStatus(lead.displayStatus) == _selectedFilter,
+        )
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: RezekiTheme.appBackgroundGradient,
+        ),
+        child: SafeArea(
+          child: FutureBuilder<_SalesSnapshot>(
+            future: _salesFuture,
+            builder: (context, snapshot) {
+              final data = snapshot.data ?? _SalesSnapshot.empty;
+              final leads = data.leads;
+              final visibleLeads = _visibleLeads(leads);
+              final statusCounts = _leadStatusCounts(leads);
+
+              return RefreshIndicator(
+                onRefresh: _refresh,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Sales',
+                              style: Theme.of(context).textTheme.headlineMedium,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Daily CRM execution',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                        child: _PipelineSummary(
+                          total: leads.length,
+                          newLead: statusCounts['New Lead'] ?? 0,
+                          interested: statusCounts['Interested'] ?? 0,
+                          processing: statusCounts['Processing'] ?? 0,
+                        ),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height: 48,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          itemCount: _filters.length,
+                          separatorBuilder: (_, _) => const SizedBox(width: 8),
+                          itemBuilder: (context, index) {
+                            final filter = _filters[index];
+                            return _FilterChip(
+                              label: filter,
+                              isSelected: _selectedFilter == filter,
+                              onTap: () =>
+                                  setState(() => _selectedFilter = filter),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                        child: _SalesSectionHeader(
+                          title: 'My Leads',
+                          subtitle: '${visibleLeads.length} leads',
+                        ),
+                      ),
+                    ),
+                    if (snapshot.connectionState == ConnectionState.waiting &&
+                        leads.isEmpty)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: _PageStateMessage(
+                          icon: Icons.sync_outlined,
+                          title: 'Loading sales',
+                          message: 'Fetching leads from Rezeki.',
+                        ),
+                      )
+                    else if (snapshot.hasError)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: _PageStateMessage(
+                          icon: Icons.error_outline,
+                          title: 'Sales unavailable',
+                          message: _errorText(snapshot.error),
+                          actionLabel: 'Retry',
+                          onAction: _refresh,
+                        ),
+                      )
+                    else if (visibleLeads.isEmpty)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: _PageStateMessage(
+                          icon: Icons.trending_up_outlined,
+                          title: 'No leads found',
+                          message:
+                              'Leads created in the sales pipeline will appear here.',
+                        ),
+                      )
+                    else
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                        sliver: SliverList.builder(
+                          itemCount: visibleLeads.length,
+                          itemBuilder: (context, index) {
+                            final lead = visibleLeads[index];
+                            final contact = data.contactsById[lead.contactId];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _LeadCard(
+                                lead: lead,
+                                contact: contact,
+                                onTap: () => _openLead(lead),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                        child: Column(
+                          children: const [
+                            _SalesPlaceholderSection(
+                              title: 'Follow-up Today',
+                              message: 'Follow-up scheduling is coming soon.',
+                            ),
+                            SizedBox(height: 12),
+                            _SalesPlaceholderSection(
+                              title: 'Recently Updated',
+                              message:
+                                  'Recent sales activity will appear here when available.',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _errorText(Object? error) {
+    if (error is LeadsServiceException) return error.message;
+    if (error is AuthServiceException) return error.message;
+    return 'Unable to load leads.';
+  }
+
+  Future<void> _openLead(SalesLead lead) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ContactDetailPage(contact: lead.toContactStub()),
+      ),
+    );
+    if (!mounted) return;
+    final future = _loadSales();
+    setState(() => _salesFuture = future);
+  }
+}
+
+class _SalesSnapshot {
+  const _SalesSnapshot({required this.leads, required this.contactsById});
+
+  static const empty = _SalesSnapshot(leads: [], contactsById: {});
+
+  final List<SalesLead> leads;
+  final Map<String, CrmContact> contactsById;
+}
+
+// ---------------------------------------------------------------------------
+// More Page
+// ---------------------------------------------------------------------------
+
+class MorePage extends StatelessWidget {
+  const MorePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final session = AuthService.instance.session.value;
+    final user = session?.user;
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: RezekiTheme.appBackgroundGradient,
+        ),
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            children: [
+              Text('More', style: Theme.of(context).textTheme.headlineMedium),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      _Avatar(
+                        initial: user?.fullName ?? user?.email ?? 'U',
+                        imageUrl: user?.avatarUrl,
+                        size: 64,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user?.fullName ?? user?.email ?? 'Signed in',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: AppColors.textPrimary,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                            ),
+                            if (user?.email != null &&
+                                user?.fullName != null) ...[
+                              const SizedBox(height: 3),
+                              Text(
+                                user!.email!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                            if ((user?.organizationName ??
+                                    user?.organizationId) !=
+                                null) ...[
+                              const SizedBox(height: 5),
+                              Text(
+                                user?.organizationName ?? user!.organizationId!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppColors.textTertiary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Card(
+                child: Column(
+                  children: [
+                    _MoreMenuTile(
+                      icon: Icons.settings_outlined,
+                      label: 'Settings',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const SettingsPage(),
+                        ),
+                      ),
+                    ),
+                    _MoreMenuTile(
+                      icon: Icons.support_agent_outlined,
+                      label: 'Help / Support',
+                      onTap: () => _showComingSoon(context),
+                    ),
+                    _MoreMenuTile(
+                      icon: Icons.info_outline,
+                      label: 'About App',
+                      onTap: () => _showAboutDialog(context),
+                    ),
+                    _MoreMenuTile(
+                      icon: Icons.logout_outlined,
+                      label: 'Logout',
+                      destructive: true,
+                      onTap: () => _logout(context),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showComingSoon(BuildContext context) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Coming soon.')));
+  }
+
+  Future<void> _showAboutDialog(BuildContext context) {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        title: const Text('Rezeki Dashboard Mobile'),
+        content: const Text('CRM for PMKS\nVersion placeholder'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _logout(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -425,70 +1123,6 @@ class _MainShellState extends State<MainShell> {
       await AuthService.instance.signOut();
     }
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          _pages[_currentIndex],
-          Positioned(
-            top: MediaQuery.paddingOf(context).top + 12,
-            right: 12,
-            child: Material(
-              color: AppColors.surface,
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.zero,
-                side: BorderSide(color: AppColors.border),
-              ),
-              elevation: 0,
-              child: IconButton(
-                icon: const Icon(
-                  Icons.logout_outlined,
-                  color: AppColors.textSecondary,
-                ),
-                tooltip: 'Log Out',
-                onPressed: _logout,
-              ),
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          border: Border(
-            top: BorderSide(color: AppColors.border.withValues(alpha: 0.6)),
-          ),
-          boxShadow: RezekiTheme.softShadow,
-        ),
-        child: NavigationBar(
-          selectedIndex: _currentIndex,
-          onDestinationSelected: (index) {
-            setState(() => _currentIndex = index);
-          },
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.inbox_outlined),
-              selectedIcon: Icon(Icons.inbox_rounded),
-              label: 'Inbox',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.people_outline),
-              selectedIcon: Icon(Icons.people_rounded),
-              label: 'Contacts',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.settings_outlined),
-              selectedIcon: Icon(Icons.settings_rounded),
-              label: 'Settings',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -502,11 +1136,13 @@ class InboxPage extends StatefulWidget {
   State<InboxPage> createState() => _InboxPageState();
 }
 
-class _InboxPageState extends State<InboxPage> {
+class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
   final InboxService _inboxService = InboxService(
     authService: AuthService.instance,
   );
   late Future<List<InboxConversation>> _conversationsFuture;
+  Timer? _inboxPollTimer;
+  bool _isPollingConversations = false;
   String _inboxSearch = '';
   String _inboxFilter = 'All';
   int? _activityDays = 30;
@@ -515,9 +1151,48 @@ class _InboxPageState extends State<InboxPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _conversationsFuture = _inboxService.fetchConversations(
       days: _activityDays,
     );
+    _inboxPollTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _pollConversations(),
+    );
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _inboxPollTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      refreshNow();
+    }
+  }
+
+  void refreshNow() {
+    unawaited(_pollConversations(force: true));
+  }
+
+  Future<void> _pollConversations({bool force = false}) async {
+    if (_isPollingConversations && !force) return;
+    _isPollingConversations = true;
+    try {
+      final conversations = await _inboxService.fetchConversations(
+        days: _activityDays,
+      );
+      if (!mounted) return;
+      setState(() => _conversationsFuture = Future.value(conversations));
+    } catch (_) {
+      // Keep the current inbox visible if a background refresh fails.
+    } finally {
+      _isPollingConversations = false;
+    }
   }
 
   Future<void> _refresh() async {
@@ -754,25 +1429,63 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
   );
   final TextEditingController _composerController = TextEditingController();
   late Future<List<InboxMessage>> _messagesFuture;
+  Timer? _messagePollTimer;
+  bool _isPollingMessages = false;
   bool _isSending = false;
+  bool _isAiThinking = false;
+  bool _isCheckingAiAvailability = true;
+  bool _isAiAssistEnabled = false;
+  String _composerText = '';
   String? _sendError;
+  String? _aiError;
+  AiInboxAssistResult? _aiResult;
 
   @override
   void initState() {
     super.initState();
     _messagesFuture = _inboxService.fetchMessages(widget.conversation.id);
+    _composerController.addListener(_handleComposerChanged);
+    _loadAiAssistAvailability();
+    _messagePollTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _pollMessages(),
+    );
   }
 
   @override
   void dispose() {
+    _messagePollTimer?.cancel();
+    _composerController.removeListener(_handleComposerChanged);
     _composerController.dispose();
     super.dispose();
+  }
+
+  void _handleComposerChanged() {
+    final text = _composerController.text;
+    if (text == _composerText) return;
+    setState(() => _composerText = text);
   }
 
   Future<void> _refresh() async {
     final future = _inboxService.fetchMessages(widget.conversation.id);
     setState(() => _messagesFuture = future);
     await future;
+  }
+
+  Future<void> _pollMessages() async {
+    if (_isPollingMessages) return;
+    _isPollingMessages = true;
+    try {
+      final messages = await _inboxService.fetchMessages(
+        widget.conversation.id,
+      );
+      if (!mounted) return;
+      setState(() => _messagesFuture = Future.value(messages));
+    } catch (_) {
+      // Keep the current thread visible if a background refresh fails.
+    } finally {
+      _isPollingMessages = false;
+    }
   }
 
   @override
@@ -787,6 +1500,10 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
           child: Column(
             children: [
               _ThreadHeader(conversation: widget.conversation),
+              _ThreadCrmContext(
+                conversation: widget.conversation,
+                onAction: _showComingSoon,
+              ),
               Expanded(
                 child: FutureBuilder<List<InboxMessage>>(
                   future: _messagesFuture,
@@ -840,8 +1557,16 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
                 controller: _composerController,
                 enabled: widget.conversation.whatsappAccountId != null,
                 isSending: _isSending,
+                isAiThinking: _isAiThinking,
+                isCheckingAiAvailability: _isCheckingAiAvailability,
+                isAiAssistEnabled: _isAiAssistEnabled,
+                aiResult: _aiResult,
                 errorMessage: _sendError,
+                aiErrorMessage: _aiError,
                 onSend: _sendMessage,
+                onAiAction: _runAiAssist,
+                onUseAiReply: _useAiReply,
+                hasDraft: _composerText.trim().isNotEmpty,
               ),
             ],
           ),
@@ -871,20 +1596,161 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
         text: text,
       );
       _composerController.clear();
+      _aiResult = null;
       final future = _inboxService.fetchMessages(widget.conversation.id);
       setState(() => _messagesFuture = future);
-      await future;
+      _scheduleStatusRefreshes();
     } on InboxServiceException catch (error) {
-      setState(() => _sendError = error.message);
+      final recovered = await _recoverSentMessageAfterError(text);
+      if (!recovered && mounted) {
+        setState(() => _sendError = error.message);
+      }
     } on AuthServiceException catch (error) {
-      setState(() => _sendError = error.message);
+      final recovered = await _recoverSentMessageAfterError(text);
+      if (!recovered && mounted) {
+        setState(() => _sendError = error.message);
+      }
     } catch (_) {
-      setState(() => _sendError = 'Unable to send message.');
+      final recovered = await _recoverSentMessageAfterError(text);
+      if (!recovered && mounted) {
+        setState(() => _sendError = 'Unable to send message.');
+      }
     } finally {
       if (mounted) {
         setState(() => _isSending = false);
       }
     }
+  }
+
+  Future<bool> _recoverSentMessageAfterError(String text) async {
+    try {
+      final messages = await _inboxService.fetchMessages(
+        widget.conversation.id,
+      );
+      final normalizedText = text.trim();
+      final now = DateTime.now();
+      final hasSentMessage = messages.any((message) {
+        if (!message.isOutgoing) return false;
+        if (message.contentText.trim() != normalizedText) return false;
+        final sentAt = message.sentAt;
+        if (sentAt == null) return true;
+        return now.difference(sentAt).abs() <= const Duration(minutes: 5);
+      });
+
+      if (!hasSentMessage || !mounted) return false;
+
+      _composerController.clear();
+      _aiResult = null;
+      setState(() {
+        _messagesFuture = Future.value(messages);
+        _sendError = null;
+      });
+      _scheduleStatusRefreshes();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _loadAiAssistAvailability() async {
+    try {
+      final status = await _inboxService.fetchAiAssistAvailability();
+      if (!mounted) return;
+      setState(() {
+        _isAiAssistEnabled = status.isEnabled;
+        _isCheckingAiAvailability = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isAiAssistEnabled = false;
+        _isCheckingAiAvailability = false;
+        _aiError = 'AI Assist status could not be checked.';
+      });
+    }
+  }
+
+  Future<void> _runAiAssist(String action) async {
+    final draft = _composerController.text.trim();
+    if (_isAiThinking || !_isAiAssistEnabled) return;
+
+    if ((action == 'rewrite_draft' || action == 'check_reply') &&
+        draft.isEmpty) {
+      setState(() => _aiError = 'Write a draft first for this AI action.');
+      return;
+    }
+
+    setState(() {
+      _isAiThinking = true;
+      _aiError = null;
+    });
+
+    try {
+      final result = await _inboxService.requestAiAssist(
+        conversationId: widget.conversation.id,
+        action: action,
+        draft: draft.isEmpty ? null : draft,
+        tone: action == 'rewrite_draft' ? 'friendly' : 'concise',
+      );
+      setState(() => _aiResult = result);
+    } on InboxServiceException catch (error) {
+      if (error.code == 'ai_message_assist_disabled') {
+        setState(() {
+          _isAiAssistEnabled = false;
+          _aiResult = null;
+          _aiError = null;
+        });
+      } else {
+        setState(() => _aiError = _friendlyAiError(error.message));
+      }
+    } on AuthServiceException catch (error) {
+      setState(() => _aiError = error.message);
+    } catch (_) {
+      setState(() => _aiError = 'AI Assist is unavailable right now.');
+    } finally {
+      if (mounted) {
+        setState(() => _isAiThinking = false);
+      }
+    }
+  }
+
+  void _useAiReply(String body) {
+    _composerController.text = body;
+    _composerController.selection = TextSelection.collapsed(
+      offset: _composerController.text.length,
+    );
+  }
+
+  void _showComingSoon() {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Coming soon.')));
+  }
+
+  void _scheduleStatusRefreshes() {
+    for (final delay in const [
+      Duration(seconds: 2),
+      Duration(seconds: 6),
+      Duration(seconds: 12),
+    ]) {
+      Future<void>.delayed(delay, () {
+        if (!mounted) return;
+        setState(() {
+          _messagesFuture = _inboxService.fetchMessages(widget.conversation.id);
+        });
+      });
+    }
+  }
+
+  String _friendlyAiError(String message) {
+    final lower = message.toLowerCase();
+    if (lower.contains('usage') || lower.contains('credit')) {
+      return 'AI Assist limit has been reached for this workspace.';
+    }
+    if (lower.contains('not enabled')) {
+      return 'AI Assist is not enabled for this workspace.';
+    }
+    return 'AI Assist could not complete that action. You can still reply normally.';
   }
 }
 
@@ -1228,17 +2094,31 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
                           ),
                           const SizedBox(height: 12),
                           _DetailSection(
-                            title: 'CRM',
+                            title: 'Sales / Lead',
                             children: [
                               _DetailRow(
                                 icon: Icons.verified_user_outlined,
                                 label: 'Status',
-                                value: contact.status,
+                                value: contact.status.isEmpty
+                                    ? 'Not set'
+                                    : contact.status,
                               ),
                               _DetailRow(
                                 icon: Icons.label_outline,
                                 label: 'Tag',
-                                value: contact.tag,
+                                value: contact.tag.isEmpty
+                                    ? 'Not set'
+                                    : contact.tag,
+                              ),
+                              const _DetailRow(
+                                icon: Icons.today_outlined,
+                                label: 'Follow-up',
+                                value: 'Coming soon',
+                              ),
+                              const _DetailRow(
+                                icon: Icons.history_outlined,
+                                label: 'Last Activity',
+                                value: 'Coming soon',
                               ),
                             ],
                           ),
@@ -1730,6 +2610,375 @@ class SettingsPage extends StatelessWidget {
 // Reusable Widgets
 // ---------------------------------------------------------------------------
 
+bool _isActiveLeadStatus(String status) {
+  return !{'Closed Won', 'Closed Lost'}.contains(_normalizeStatus(status));
+}
+
+String _normalizeStatus(String status) {
+  final normalized = status.trim().toLowerCase().replaceAll('_', ' ');
+  switch (normalized) {
+    case 'new':
+    case 'new lead':
+      return 'New Lead';
+    case 'contacted':
+      return 'Contacted';
+    case 'interested':
+      return 'Interested';
+    case 'processing':
+      return 'Processing';
+    case 'closed won':
+    case 'won':
+      return 'Closed Won';
+    case 'closed lost':
+    case 'lost':
+      return 'Closed Lost';
+    case 'active':
+      return 'New Lead';
+    default:
+      if (status.trim().isEmpty) return 'New Lead';
+      return status.trim();
+  }
+}
+
+Map<String, int> _leadStatusCounts(List<SalesLead> leads) {
+  final counts = <String, int>{};
+  for (final lead in leads) {
+    final status = _normalizeStatus(lead.displayStatus);
+    counts[status] = (counts[status] ?? 0) + 1;
+  }
+  return counts;
+}
+
+({Color bg, Color fg}) _statusColors(String status) {
+  switch (_normalizeStatus(status)) {
+    case 'Closed Won':
+      return (bg: AppColors.successLight, fg: AppColors.success);
+    case 'Closed Lost':
+      return (bg: AppColors.errorLight, fg: AppColors.error);
+    case 'Interested':
+    case 'Contacted':
+      return (bg: AppColors.interestedLight, fg: AppColors.primary);
+    case 'Processing':
+      return (bg: AppColors.warningLight, fg: AppColors.warning);
+    case 'New Lead':
+    default:
+      return (bg: AppColors.newLeadLight, fg: AppColors.newLead);
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onTap,
+    this.helper,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String? helper;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: AppColors.primary, size: 24),
+              const Spacer(),
+              Text(
+                value,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (helper != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  helper!,
+                  style: const TextStyle(
+                    color: AppColors.textTertiary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PipelineSummary extends StatelessWidget {
+  const _PipelineSummary({
+    required this.total,
+    required this.newLead,
+    required this.interested,
+    required this.processing,
+  });
+
+  final int total;
+  final int newLead;
+  final int interested;
+  final int processing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _SalesSectionHeader(
+              title: 'Pipeline Summary',
+              subtitle: 'Lead status overview',
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _MiniMetric(label: 'Total', value: total),
+                ),
+                Expanded(
+                  child: _MiniMetric(label: 'New', value: newLead),
+                ),
+                Expanded(
+                  child: _MiniMetric(label: 'Interested', value: interested),
+                ),
+                Expanded(
+                  child: _MiniMetric(label: 'Processing', value: processing),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniMetric extends StatelessWidget {
+  const _MiniMetric({required this.label, required this.value});
+
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value.toString(),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: AppColors.textTertiary,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SalesSectionHeader extends StatelessWidget {
+  const _SalesSectionHeader({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        Text(
+          subtitle,
+          style: const TextStyle(
+            color: AppColors.textTertiary,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LeadCard extends StatelessWidget {
+  const _LeadCard({required this.lead, required this.onTap, this.contact});
+
+  final SalesLead lead;
+  final CrmContact? contact;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = _normalizeStatus(lead.displayStatus);
+    final tag =
+        lead.source ?? contact?.companyName ?? lead.temperatureLabel ?? 'Lead';
+    final displayName = contact?.name ?? lead.name;
+    final phone = contact?.phone ?? lead.phone;
+
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              _Avatar(
+                initial: displayName.isEmpty ? '?' : displayName[0],
+                imageUrl: contact?.avatarUrl,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      phone,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        _StatusChip(
+                          label: status,
+                          colors: _statusColors(status),
+                        ),
+                        _TagChip(label: tag),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.textTertiary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SalesPlaceholderSection extends StatelessWidget {
+  const _SalesPlaceholderSection({required this.title, required this.message});
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(message, style: Theme.of(context).textTheme.bodyMedium),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MoreMenuTile extends StatelessWidget {
+  const _MoreMenuTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.destructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = destructive ? AppColors.error : AppColors.textPrimary;
+
+    return ListTile(
+      leading: Icon(icon, color: color),
+      title: Text(
+        label,
+        style: TextStyle(color: color, fontWeight: FontWeight.w700),
+      ),
+      trailing: destructive
+          ? null
+          : const Icon(Icons.chevron_right, color: AppColors.textTertiary),
+      onTap: onTap,
+    );
+  }
+}
+
 class _ContactFormScaffold extends StatelessWidget {
   const _ContactFormScaffold({
     required this.title,
@@ -2168,6 +3417,94 @@ class _ThreadHeader extends StatelessWidget {
   }
 }
 
+class _ThreadCrmContext extends StatelessWidget {
+  const _ThreadCrmContext({required this.conversation, required this.onAction});
+
+  final InboxConversation conversation;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = conversation.leadStatus;
+    final tag = conversation.tag ?? conversation.whatsappAccountLabel;
+    final hasContext =
+        (status != null && status.isNotEmpty) ||
+        (tag != null && tag.isNotEmpty);
+
+    return Container(
+      width: double.infinity,
+      color: AppColors.surface,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (status != null && status.isNotEmpty)
+                _StatusChip(label: status, colors: _statusColors(status)),
+              if (tag != null && tag.isNotEmpty) _TagChip(label: tag),
+              if (!hasContext) const _TagChip(label: 'CRM status not set'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _CrmActionButton(
+                  icon: Icons.edit_note_outlined,
+                  label: 'Update Status',
+                  onPressed: onAction,
+                ),
+                const SizedBox(width: 8),
+                _CrmActionButton(
+                  icon: Icons.label_outline,
+                  label: 'Add Tag',
+                  onPressed: onAction,
+                ),
+                const SizedBox(width: 8),
+                _CrmActionButton(
+                  icon: Icons.today_outlined,
+                  label: 'Set Follow-up',
+                  onPressed: onAction,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CrmActionButton extends StatelessWidget {
+  const _CrmActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 16),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      ),
+    );
+  }
+}
+
 IconData _conversationSourceIcon(String? channel) {
   switch (channel) {
     case 'facebook':
@@ -2197,6 +3534,7 @@ class _MessageBubble extends StatelessWidget {
         ? AppColors.primary
         : AppColors.surface;
     final textColor = isOutgoing ? Colors.white : AppColors.textPrimary;
+    final presentation = message.presentation;
 
     return Align(
       alignment: isSystem ? Alignment.center : alignment,
@@ -2220,25 +3558,40 @@ class _MessageBubble extends StatelessWidget {
               : CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              message.contentText,
-              style: TextStyle(
-                color: textColor,
-                fontSize: 14,
-                fontWeight: isSystem ? FontWeight.w500 : FontWeight.w400,
-                height: 1.35,
+            if (presentation.isMedia)
+              _MessageAttachmentView(
+                presentation: presentation,
+                isOutgoing: isOutgoing,
+              )
+            else
+              Text(
+                presentation.title,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 14,
+                  fontWeight: isSystem ? FontWeight.w500 : FontWeight.w400,
+                  height: 1.35,
+                ),
               ),
-            ),
             const SizedBox(height: 6),
-            Text(
-              _formatMessageTime(message.sentAt),
-              style: TextStyle(
-                color: isOutgoing
-                    ? Colors.white.withValues(alpha: 0.72)
-                    : AppColors.textTertiary,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _formatMessageTime(message.sentAt),
+                  style: TextStyle(
+                    color: isOutgoing
+                        ? Colors.white.withValues(alpha: 0.72)
+                        : AppColors.textTertiary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (isOutgoing) ...[
+                  const SizedBox(width: 8),
+                  _MessageStatusLabel(message: message),
+                ],
+              ],
             ),
           ],
         ),
@@ -2254,20 +3607,262 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
+class _MessageAttachmentView extends StatelessWidget {
+  const _MessageAttachmentView({
+    required this.presentation,
+    required this.isOutgoing,
+  });
+
+  final MessageAttachmentPresentation presentation;
+  final bool isOutgoing;
+
+  @override
+  Widget build(BuildContext context) {
+    final fgColor = isOutgoing ? Colors.white : AppColors.textPrimary;
+    final mutedColor = isOutgoing
+        ? Colors.white.withValues(alpha: 0.74)
+        : AppColors.textSecondary;
+    final panelColor = isOutgoing
+        ? Colors.white.withValues(alpha: 0.12)
+        : AppColors.muted;
+
+    return Container(
+      constraints: const BoxConstraints(minWidth: 190),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: panelColor,
+        borderRadius: BorderRadius.circular(RezekiRadii.input),
+        border: Border.all(
+          color: isOutgoing
+              ? Colors.white.withValues(alpha: 0.18)
+              : AppColors.border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (presentation.hasImagePreview) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(RezekiRadii.input),
+              child: Image.memory(
+                base64Decode(presentation.dataBase64!),
+                width: 220,
+                height: 160,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return _AttachmentIconPanel(
+                    kind: presentation.kind,
+                    color: mutedColor,
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 10),
+          ] else
+            _AttachmentIconPanel(kind: presentation.kind, color: mutedColor),
+          if (presentation.label != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              presentation.label!.toUpperCase(),
+              style: TextStyle(
+                color: mutedColor,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+          const SizedBox(height: 4),
+          Text(
+            presentation.title,
+            style: TextStyle(
+              color: fgColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              height: 1.3,
+            ),
+          ),
+          if (presentation.caption != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              presentation.caption!,
+              style: TextStyle(color: mutedColor, fontSize: 13, height: 1.35),
+            ),
+          ],
+          if (presentation.details.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: presentation.details
+                  .map(
+                    (detail) => Text(
+                      detail,
+                      style: TextStyle(
+                        color: mutedColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+          if (presentation.downloadUrl != null &&
+              presentation.downloadUrl!.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () => launchUrl(
+                Uri.parse(presentation.downloadUrl!),
+                mode: LaunchMode.externalApplication,
+              ),
+              icon: const Icon(Icons.open_in_new_outlined, size: 16),
+              label: const Text('Open attachment'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: fgColor,
+                side: BorderSide(color: mutedColor.withValues(alpha: 0.55)),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AttachmentIconPanel extends StatelessWidget {
+  const _AttachmentIconPanel({required this.kind, required this.color});
+
+  final String kind;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 54,
+      height: 54,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(RezekiRadii.input),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Icon(_iconForKind(kind), color: color, size: 24),
+    );
+  }
+
+  IconData _iconForKind(String kind) {
+    switch (kind) {
+      case 'image':
+        return Icons.image_outlined;
+      case 'video':
+        return Icons.videocam_outlined;
+      case 'audio':
+        return Icons.graphic_eq_outlined;
+      case 'document':
+        return Icons.description_outlined;
+      case 'location':
+        return Icons.location_on_outlined;
+      case 'contact':
+        return Icons.contact_page_outlined;
+      case 'sticker':
+        return Icons.emoji_emotions_outlined;
+      case 'reaction':
+        return Icons.favorite_border;
+      default:
+        return Icons.attach_file_outlined;
+    }
+  }
+}
+
+class _MessageStatusLabel extends StatelessWidget {
+  const _MessageStatusLabel({required this.message});
+
+  final InboxMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = _formatAckStatus(message) ?? 'Sending';
+    final color = _ackStatusColor(message.ackStatus);
+
+    return Text(
+      label,
+      style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700),
+    );
+  }
+
+  String? _formatAckStatus(InboxMessage message) {
+    switch (message.ackStatus) {
+      case 'queued':
+      case 'pending':
+        return _hasConnectorMessageId(message) ? 'Sent' : 'Sending';
+      case 'server_ack':
+        return 'Sent';
+      case 'device_delivered':
+        return 'Delivered';
+      case 'read':
+        return 'Read';
+      case 'played':
+        return 'Played';
+      case 'failed':
+        return 'Failed';
+      default:
+        return _hasConnectorMessageId(message) ? 'Sent' : null;
+    }
+  }
+
+  bool _hasConnectorMessageId(InboxMessage message) {
+    final externalId = message.externalMessageId;
+    if (externalId == null || externalId.isEmpty) return false;
+    return !externalId.startsWith('queued:');
+  }
+
+  Color _ackStatusColor(String? status) {
+    switch (status) {
+      case 'device_delivered':
+      case 'played':
+      case 'read':
+      case 'server_ack':
+        return Colors.white.withValues(alpha: 0.78);
+      case 'failed':
+        return AppColors.errorLight;
+      case 'pending':
+      case 'queued':
+      default:
+        return Colors.white.withValues(alpha: 0.68);
+    }
+  }
+}
+
 class _MessageComposer extends StatelessWidget {
   const _MessageComposer({
     required this.controller,
     required this.enabled,
     required this.isSending,
+    required this.isAiThinking,
+    required this.isCheckingAiAvailability,
+    required this.isAiAssistEnabled,
     required this.onSend,
+    required this.onAiAction,
+    required this.onUseAiReply,
+    required this.hasDraft,
+    this.aiResult,
     this.errorMessage,
+    this.aiErrorMessage,
   });
 
   final TextEditingController controller;
   final bool enabled;
   final bool isSending;
+  final bool isAiThinking;
+  final bool isCheckingAiAvailability;
+  final bool isAiAssistEnabled;
   final VoidCallback onSend;
+  final ValueChanged<String> onAiAction;
+  final ValueChanged<String> onUseAiReply;
+  final bool hasDraft;
+  final AiInboxAssistResult? aiResult;
   final String? errorMessage;
+  final String? aiErrorMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -2285,6 +3880,19 @@ class _MessageComposer extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (enabled) ...[
+            _InboxAiAssistPanel(
+              isThinking: isAiThinking,
+              isCheckingAvailability: isCheckingAiAvailability,
+              isEnabled: isAiAssistEnabled,
+              result: aiResult,
+              errorMessage: aiErrorMessage,
+              hasDraft: hasDraft,
+              onAction: onAiAction,
+              onUseReply: onUseAiReply,
+            ),
+            const SizedBox(height: 10),
+          ],
           if (!enabled || errorMessage != null) ...[
             Align(
               alignment: Alignment.centerLeft,
@@ -2347,6 +3955,299 @@ class _MessageComposer extends StatelessWidget {
       ),
     );
   }
+}
+
+class _InboxAiAssistPanel extends StatelessWidget {
+  const _InboxAiAssistPanel({
+    required this.isThinking,
+    required this.isCheckingAvailability,
+    required this.isEnabled,
+    required this.hasDraft,
+    required this.onAction,
+    required this.onUseReply,
+    this.result,
+    this.errorMessage,
+  });
+
+  final bool isThinking;
+  final bool isCheckingAvailability;
+  final bool isEnabled;
+  final bool hasDraft;
+  final AiInboxAssistResult? result;
+  final String? errorMessage;
+  final ValueChanged<String> onAction;
+  final ValueChanged<String> onUseReply;
+
+  @override
+  Widget build(BuildContext context) {
+    final actionButtons = [
+      _AiAction('suggest_reply', 'Suggest reply', Icons.lightbulb_outline),
+      _AiAction('detect_intent', 'Intent', Icons.manage_search_outlined),
+      _AiAction('summarize', 'Summary', Icons.notes_outlined),
+      _AiAction('rewrite_draft', 'Improve', Icons.edit_outlined, true),
+      _AiAction('check_reply', 'Check', Icons.fact_check_outlined, true),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.muted,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(RezekiRadii.input),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.auto_awesome_outlined,
+                size: 18,
+                color: AppColors.primary,
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'AI Assist',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (isThinking || isCheckingAvailability)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
+          ),
+          if (!isCheckingAvailability && !isEnabled) ...[
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Icon(
+                  Icons.lock_outline,
+                  size: 16,
+                  color: AppColors.textTertiary,
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'AI Assist is not enabled for this workspace. You can still reply normally.',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 10),
+          if (isEnabled)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: actionButtons.map((item) {
+                  final disabled =
+                      isThinking ||
+                      isCheckingAvailability ||
+                      (item.needsDraft && !hasDraft);
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: OutlinedButton.icon(
+                      onPressed: disabled ? null : () => onAction(item.action),
+                      icon: Icon(item.icon, size: 16),
+                      label: Text(item.label),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          if (errorMessage != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              errorMessage!,
+              style: const TextStyle(
+                color: AppColors.error,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          if (result != null) ...[
+            const SizedBox(height: 10),
+            _AiAssistResultCard(result: result!, onUseReply: onUseReply),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AiAssistResultCard extends StatelessWidget {
+  const _AiAssistResultCard({required this.result, required this.onUseReply});
+
+  final AiInboxAssistResult result;
+  final ValueChanged<String> onUseReply;
+
+  @override
+  Widget build(BuildContext context) {
+    final firstSuggestion = result.suggestedReplies.isEmpty
+        ? null
+        : result.suggestedReplies.first;
+    final reviewNotes = [...result.review.warnings, ...result.review.tips];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(RezekiRadii.input),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (result.action == 'detect_intent') ...[
+            Text(
+              '${result.intent.displayLabel} (${(result.intent.confidence * 100).round()}%)',
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Sentiment: ${result.intent.sentiment}. Urgency: ${result.intent.urgency}.',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+          ],
+          if (result.summary != null) ...[
+            const Text(
+              'Summary',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              result.summary!,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                height: 1.35,
+              ),
+            ),
+          ],
+          if (firstSuggestion != null) ...[
+            Text(
+              firstSuggestion.label,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              firstSuggestion.body,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.icon(
+                onPressed: () => onUseReply(firstSuggestion.body),
+                icon: const Icon(Icons.add_comment_outlined, size: 16),
+                label: const Text('Use reply'),
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                ),
+              ),
+            ),
+          ],
+          if (result.action == 'check_reply') ...[
+            Text(
+              'Spam: ${result.review.spamRisk}. Readability: ${result.review.readability}. CTA: ${result.review.ctaClarity}.',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+            ...reviewNotes
+                .take(3)
+                .map(
+                  (note) => Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '- $note',
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+          ],
+          if (result.recommendedAction != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Next: ${result.recommendedAction!.replaceAll('_', ' ')}',
+              style: const TextStyle(
+                color: AppColors.textTertiary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AiAction {
+  const _AiAction(
+    this.action,
+    this.label,
+    this.icon, [
+    this.needsDraft = false,
+  ]);
+
+  final String action;
+  final String label;
+  final IconData icon;
+  final bool needsDraft;
 }
 
 class _ContactDetailHeader extends StatelessWidget {
@@ -2491,12 +4392,23 @@ class _InlineNotice extends StatelessWidget {
   }
 }
 
-class _ContactActionBar extends StatelessWidget {
+class _ContactActionBar extends StatefulWidget {
   const _ContactActionBar({required this.contact, required this.onNotice});
 
   final CrmContact contact;
   final ValueChanged<String> onNotice;
 
+  @override
+  State<_ContactActionBar> createState() => _ContactActionBarState();
+}
+
+class _ContactActionBarState extends State<_ContactActionBar> {
+  final InboxService _inboxService = InboxService(
+    authService: AuthService.instance,
+  );
+  bool _isMessageLoading = false;
+
+  CrmContact get contact => widget.contact;
   bool get _hasPhone => contact.hasPhone && contact.phone != 'No phone';
   bool get _hasEmail => contact.email != null && contact.email!.isNotEmpty;
 
@@ -2506,21 +4418,20 @@ class _ContactActionBar extends StatelessWidget {
       children: [
         Expanded(
           child: _ContactActionButton(
-            icon: Icons.call_outlined,
-            label: 'Call',
-            enabled: _hasPhone,
-            onPressed: () => _launch(Uri(scheme: 'tel', path: contact.phone)),
+            icon: Icons.chat_outlined,
+            label: 'Message',
+            enabled: !_isMessageLoading && contact.id.isNotEmpty,
+            isLoading: _isMessageLoading,
+            onPressed: _openMessage,
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
           child: _ContactActionButton(
-            icon: Icons.chat_outlined,
-            label: 'WhatsApp',
+            icon: Icons.call_outlined,
+            label: 'Call',
             enabled: _hasPhone,
-            onPressed: () {
-              _openWhatsApp();
-            },
+            onPressed: () => _launch(Uri(scheme: 'tel', path: contact.phone)),
           ),
         ),
         const SizedBox(width: 8),
@@ -2550,27 +4461,112 @@ class _ContactActionBar extends StatelessWidget {
 
   Future<void> _copyPhone() async {
     await Clipboard.setData(ClipboardData(text: contact.phone));
-    onNotice('Phone number copied.');
+    widget.onNotice('Phone number copied.');
   }
 
-  Future<void> _openWhatsApp() async {
-    final phone = contact.phone.replaceAll(RegExp(r'[^0-9]'), '');
-    if (phone.isEmpty) {
-      onNotice('No WhatsApp-ready phone number.');
-      return;
-    }
+  Future<void> _openMessage() async {
+    if (_isMessageLoading) return;
 
-    await _launch(Uri.parse('https://wa.me/$phone'));
+    setState(() => _isMessageLoading = true);
+    try {
+      final existing = await _inboxService.fetchConversationForContact(
+        contact.id,
+      );
+      if (existing != null) {
+        await _openConversation(existing);
+        return;
+      }
+
+      final sources = await _inboxService.fetchWhatsappSources();
+      if (!mounted) return;
+
+      if (sources.isEmpty) {
+        widget.onNotice(
+          'No WhatsApp source connected. Please connect a WhatsApp source first.',
+        );
+        return;
+      }
+
+      final source = sources.length == 1
+          ? sources.first
+          : await _pickWhatsappSource(sources);
+      if (source == null || !mounted) return;
+
+      final conversation = await _inboxService.createConversationForContact(
+        contactId: contact.id,
+        whatsappAccountId: source.id,
+      );
+      if (!mounted) return;
+
+      await _openConversation(conversation);
+    } on InboxServiceException catch (error) {
+      widget.onNotice(error.message);
+    } on AuthServiceException catch (error) {
+      widget.onNotice(error.message);
+    } catch (_) {
+      widget.onNotice('Unable to open this conversation.');
+    } finally {
+      if (mounted) setState(() => _isMessageLoading = false);
+    }
+  }
+
+  Future<void> _openConversation(InboxConversation conversation) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => InboxThreadPage(conversation: conversation),
+      ),
+    );
+  }
+
+  Future<WhatsAppSource?> _pickWhatsappSource(
+    List<WhatsAppSource> sources,
+  ) async {
+    return showModalBottomSheet<WhatsAppSource>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Choose WhatsApp source',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...sources.map(
+                  (source) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.chat_outlined),
+                    title: Text(source.label),
+                    subtitle: source.subtitle.isEmpty
+                        ? null
+                        : Text(source.subtitle),
+                    onTap: () => Navigator.of(context).pop(source),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _launch(Uri uri) async {
     try {
       final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!opened) {
-        onNotice('Unable to open this action.');
+        widget.onNotice('Unable to open this action.');
       }
     } catch (_) {
-      onNotice('Unable to open this action.');
+      widget.onNotice('Unable to open this action.');
     }
   }
 }
@@ -2581,12 +4577,14 @@ class _ContactActionButton extends StatelessWidget {
     required this.label,
     required this.enabled,
     required this.onPressed,
+    this.isLoading = false,
   });
 
   final IconData icon;
   final String label;
   final bool enabled;
   final VoidCallback onPressed;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -2598,7 +4596,14 @@ class _ContactActionButton extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18),
+          if (isLoading)
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            Icon(icon, size: 18),
           const SizedBox(height: 4),
           Text(
             label,
@@ -2720,10 +4725,10 @@ class _SourceSection extends StatelessWidget {
     final sources = contact.sourceLabels;
 
     return _DetailSection(
-      title: 'WhatsApp Sources',
+      title: 'Source',
       children: [
         if (sources.isEmpty)
-          const _DetailText(value: 'No WhatsApp source linked.')
+          const _DetailText(value: 'No source linked.')
         else
           Wrap(
             spacing: 8,
@@ -3013,8 +5018,9 @@ class _ContactCard extends StatelessWidget {
 class _Avatar extends StatelessWidget {
   final String initial;
   final String? imageUrl;
+  final double size;
 
-  const _Avatar({required this.initial, this.imageUrl});
+  const _Avatar({required this.initial, this.imageUrl, this.size = 48});
 
   @override
   Widget build(BuildContext context) {
@@ -3024,8 +5030,8 @@ class _Avatar extends StatelessWidget {
     final normalizedImageUrl = imageUrl?.trim();
 
     return Container(
-      width: 48,
-      height: 48,
+      width: size,
+      height: size,
       decoration: const BoxDecoration(
         gradient: RezekiTheme.primaryGradient,
         borderRadius: BorderRadius.all(Radius.circular(RezekiRadii.avatar)),

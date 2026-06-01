@@ -20,6 +20,7 @@ class AuthUser {
     this.organizationId,
     this.organizationName,
     this.role,
+    this.avatarUrl,
   });
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
@@ -30,6 +31,13 @@ class AuthUser {
       organizationId: json['organizationId'] as String?,
       organizationName: json['organizationName'] as String?,
       role: json['role'] as String?,
+      avatarUrl: _nullableString(
+        json['avatarUrl'] ??
+            json['avatar_url'] ??
+            json['picture'] ??
+            json['profileImageUrl'] ??
+            json['profile_image_url'],
+      ),
     );
   }
 
@@ -39,6 +47,7 @@ class AuthUser {
   final String? organizationId;
   final String? organizationName;
   final String? role;
+  final String? avatarUrl;
 
   Map<String, dynamic> toJson() {
     return {
@@ -48,7 +57,13 @@ class AuthUser {
       'organizationId': organizationId,
       'organizationName': organizationName,
       'role': role,
+      'avatarUrl': avatarUrl,
     };
+  }
+
+  static String? _nullableString(Object? value) {
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+    return null;
   }
 }
 

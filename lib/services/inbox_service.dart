@@ -9,16 +9,20 @@ class InboxConversation {
     required this.contactName,
     required this.lastMessagePreview,
     required this.unreadCount,
+    this.contactId,
     this.whatsappAccountId,
     this.whatsappAccountLabel,
     this.lastMessageAt,
     this.channel,
     this.avatarUrl,
+    this.leadStatus,
+    this.tag,
   });
 
   factory InboxConversation.fromJson(Map<String, dynamic> json) {
     return InboxConversation(
       id: (json['id'] ?? '').toString(),
+      contactId: _readNullableString(json['contact_id'] ?? json['contactId']),
       contactName: _readString(json, 'contact_name', 'contactName', 'Unknown'),
       lastMessagePreview: _readString(
         json,
@@ -40,10 +44,24 @@ class InboxConversation {
       avatarUrl: _readNullableString(
         json['contact_avatar_url'] ?? json['contactAvatarUrl'],
       ),
+      leadStatus: _formatNullableStatus(
+        json['lead_status'] ??
+            json['leadStatus'] ??
+            json['contact_status'] ??
+            json['contactStatus'],
+      ),
+      tag: _readNullableString(
+        json['tag'] ??
+            json['contact_tag'] ??
+            json['contactTag'] ??
+            json['source_label'] ??
+            json['sourceLabel'],
+      ),
     );
   }
 
   final String id;
+  final String? contactId;
   final String contactName;
   final String lastMessagePreview;
   final int unreadCount;
@@ -52,6 +70,8 @@ class InboxConversation {
   final DateTime? lastMessageAt;
   final String? channel;
   final String? avatarUrl;
+  final String? leadStatus;
+  final String? tag;
 
   String get sourceLabel {
     if (whatsappAccountLabel != null && whatsappAccountLabel!.isNotEmpty) {
@@ -139,6 +159,16 @@ class InboxConversation {
     return null;
   }
 
+  static String? _formatNullableStatus(Object? value) {
+    final raw = _readNullableString(value);
+    if (raw == null) return null;
+    return raw
+        .split('_')
+        .where((part) => part.isNotEmpty)
+        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+        .join(' ');
+  }
+
   static DateTime? _readDate(Object? value) {
     if (value is! String || value.isEmpty) return null;
     return DateTime.tryParse(value)?.toLocal();
@@ -157,6 +187,9 @@ class InboxMessage {
     required this.messageType,
     required this.contentText,
     required this.sentAt,
+    this.contentJson,
+    this.externalMessageId,
+    this.ackStatus,
   });
 
   factory InboxMessage.fromJson(Map<String, dynamic> json) {
@@ -166,7 +199,12 @@ class InboxMessage {
       messageType: (json['message_type'] ?? json['messageType'] ?? 'text')
           .toString(),
       contentText: _readContent(json),
+      contentJson: json['content_json'] ?? json['contentJson'],
       sentAt: _readDate(json['sent_at'] ?? json['sentAt']),
+      externalMessageId: _readNullableString(
+        json['external_message_id'] ?? json['externalMessageId'],
+      ),
+      ackStatus: _readNullableString(json['ack_status'] ?? json['ackStatus']),
     );
   }
 
@@ -174,10 +212,16 @@ class InboxMessage {
   final String direction;
   final String messageType;
   final String contentText;
+  final Object? contentJson;
   final DateTime? sentAt;
+  final String? externalMessageId;
+  final String? ackStatus;
 
   bool get isOutgoing => direction == 'outgoing';
   bool get isSystem => direction == 'system';
+  MessageAttachmentPresentation get presentation {
+    return MessageAttachmentPresentation.fromMessage(this);
+  }
 
   static String _readContent(Map<String, dynamic> json) {
     final text = json['content_text'] ?? json['contentText'];
@@ -192,6 +236,481 @@ class InboxMessage {
   static DateTime? _readDate(Object? value) {
     if (value is! String || value.isEmpty) return null;
     return DateTime.tryParse(value)?.toLocal();
+  }
+
+  static String? _readNullableString(Object? value) {
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+    return null;
+  }
+}
+
+class MessageAttachmentPresentation {
+  const MessageAttachmentPresentation({
+    required this.kind,
+    required this.title,
+    required this.isMedia,
+    this.label,
+    this.caption,
+    this.mimeType,
+    this.fileName,
+    this.dataBase64,
+    this.downloadUrl,
+    this.details = const [],
+  });
+
+  factory MessageAttachmentPresentation.fromMessage(InboxMessage message) {
+    final content = _asRecord(message.contentJson);
+    final outboundMedia = _asRecord(content?['outboundMedia']);
+    final rawMessage = _unwrapRawMessage(_rawMessageNode(content));
+    final kind = _resolveKind(message.messageType, outboundMedia, rawMessage);
+    final contentText = _cleanText(message.contentText);
+
+    if (kind == 'text') {
+      return MessageAttachmentPresentation(
+        kind: kind,
+        title: contentText ?? 'Message',
+        isMedia: false,
+      );
+    }
+
+    final node = _nodeForKind(rawMessage, kind);
+    final mimeType =
+        _asString(node?['mimetype']) ?? _asString(outboundMedia?['mimeType']);
+    final fileName =
+        _asString(node?['fileName']) ?? _asString(outboundMedia?['fileName']);
+    final dataBase64 = _asString(outboundMedia?['dataBase64']);
+    final title = switch (kind) {
+      'image' => contentText ?? fileName ?? 'Photo received',
+      'video' => contentText ?? fileName ?? 'Video received',
+      'audio' => fileName ?? 'Audio message',
+      'document' => fileName ?? 'Document received',
+      'sticker' => 'Sticker',
+      'location' => _asString(node?['name']) ?? 'Shared location',
+      'contact' => _asString(node?['displayName']) ?? 'Shared contact',
+      'reaction' => _asString(node?['text']) ?? 'Reaction',
+      _ => contentText ?? '$kind message',
+    };
+    final seconds = _asNumber(node?['seconds']);
+    final fileLength =
+        _asNumber(node?['fileLength']) ??
+        _asNumber(outboundMedia?['fileSizeBytes']);
+    final formattedFileSize = _formatFileSize(fileLength);
+
+    return MessageAttachmentPresentation(
+      kind: kind,
+      label: _labelForKind(kind),
+      title: title,
+      caption: contentText == title ? null : contentText,
+      details: [
+        ?mimeType,
+        ?formattedFileSize,
+        if (seconds != null) '${seconds.round()} sec',
+      ],
+      isMedia: true,
+      mimeType: mimeType,
+      fileName: fileName,
+      dataBase64: dataBase64,
+      downloadUrl: _asString(node?['url']),
+    );
+  }
+
+  final String kind;
+  final String? label;
+  final String title;
+  final String? caption;
+  final List<String> details;
+  final bool isMedia;
+  final String? mimeType;
+  final String? fileName;
+  final String? dataBase64;
+  final String? downloadUrl;
+
+  bool get hasImagePreview =>
+      kind == 'image' &&
+      dataBase64 != null &&
+      dataBase64!.isNotEmpty &&
+      mimeType != null &&
+      mimeType!.startsWith('image/');
+
+  static String? _cleanText(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) return null;
+    return trimmed;
+  }
+
+  static Map<String, dynamic>? _asRecord(Object? value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return null;
+  }
+
+  static String? _asString(Object? value) {
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+    return null;
+  }
+
+  static num? _asNumber(Object? value) {
+    if (value is num) return value;
+    if (value is String) return num.tryParse(value);
+    return null;
+  }
+
+  static Map<String, dynamic>? _rawMessageNode(Map<String, dynamic>? content) {
+    final message = _asRecord(content?['message']);
+    if (message != null) return message;
+    return _asRecord(_asRecord(content?['rawPayload'])?['message']);
+  }
+
+  static Map<String, dynamic>? _unwrapRawMessage(
+    Map<String, dynamic>? node, [
+    int depth = 0,
+  ]) {
+    if (node == null || depth > 8) return node;
+    final wrapped =
+        _asRecord(_asRecord(node['ephemeralMessage'])?['message']) ??
+        _asRecord(_asRecord(node['viewOnceMessage'])?['message']) ??
+        _asRecord(_asRecord(node['viewOnceMessageV2'])?['message']) ??
+        _asRecord(_asRecord(node['documentWithCaptionMessage'])?['message']);
+    return wrapped == null ? node : _unwrapRawMessage(wrapped, depth + 1);
+  }
+
+  static String _resolveKind(
+    String messageType,
+    Map<String, dynamic>? outboundMedia,
+    Map<String, dynamic>? rawMessage,
+  ) {
+    final outboundKind = _asString(outboundMedia?['kind']);
+    if (outboundKind != null) return _normalizeKind(outboundKind);
+
+    final normalized = _normalizeKind(messageType);
+    if (normalized != 'system') return normalized;
+
+    if (_asRecord(rawMessage?['imageMessage']) != null) return 'image';
+    if (_asRecord(rawMessage?['videoMessage']) != null) return 'video';
+    if (_asRecord(rawMessage?['audioMessage']) != null ||
+        _asRecord(rawMessage?['pttMessage']) != null) {
+      return 'audio';
+    }
+    if (_asRecord(rawMessage?['documentMessage']) != null) return 'document';
+    if (_asRecord(rawMessage?['stickerMessage']) != null) return 'sticker';
+    if (_asRecord(rawMessage?['locationMessage']) != null) return 'location';
+    if (_asRecord(rawMessage?['contactMessage']) != null ||
+        _asRecord(rawMessage?['contactsArrayMessage']) != null) {
+      return 'contact';
+    }
+    if (_asRecord(rawMessage?['reactionMessage']) != null) return 'reaction';
+    return 'text';
+  }
+
+  static String _normalizeKind(String value) {
+    switch (value) {
+      case 'conversation':
+      case 'extendedTextMessage':
+      case 'text':
+        return 'text';
+      case 'imageMessage':
+      case 'image':
+        return 'image';
+      case 'videoMessage':
+      case 'video':
+        return 'video';
+      case 'audioMessage':
+      case 'pttMessage':
+      case 'audio':
+        return 'audio';
+      case 'documentMessage':
+      case 'document':
+        return 'document';
+      case 'stickerMessage':
+      case 'sticker':
+        return 'sticker';
+      case 'locationMessage':
+      case 'location':
+        return 'location';
+      case 'contactMessage':
+      case 'contactsArrayMessage':
+      case 'contact':
+        return 'contact';
+      case 'reactionMessage':
+      case 'reaction':
+        return 'reaction';
+      default:
+        return value.isEmpty || value == 'unknown' ? 'system' : value;
+    }
+  }
+
+  static Map<String, dynamic>? _nodeForKind(
+    Map<String, dynamic>? rawMessage,
+    String kind,
+  ) {
+    switch (kind) {
+      case 'image':
+        return _asRecord(rawMessage?['imageMessage']);
+      case 'video':
+        return _asRecord(rawMessage?['videoMessage']);
+      case 'audio':
+        return _asRecord(rawMessage?['audioMessage']) ??
+            _asRecord(rawMessage?['pttMessage']);
+      case 'document':
+        return _asRecord(rawMessage?['documentMessage']);
+      case 'location':
+        return _asRecord(rawMessage?['locationMessage']);
+      case 'contact':
+        return _asRecord(rawMessage?['contactMessage']);
+      case 'reaction':
+        return _asRecord(rawMessage?['reactionMessage']);
+      default:
+        return null;
+    }
+  }
+
+  static String? _labelForKind(String kind) {
+    return switch (kind) {
+      'image' => 'Image',
+      'video' => 'Video',
+      'audio' => 'Audio',
+      'document' => 'Document',
+      'sticker' => 'Sticker',
+      'location' => 'Location',
+      'contact' => 'Contact',
+      'reaction' => 'Reaction',
+      _ => null,
+    };
+  }
+
+  static String? _formatFileSize(num? bytes) {
+    if (bytes == null || bytes <= 0) return null;
+    const units = ['B', 'KB', 'MB', 'GB'];
+    var size = bytes.toDouble();
+    var unitIndex = 0;
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex += 1;
+    }
+    final precision = size >= 10 || unitIndex == 0 ? 0 : 1;
+    return '${size.toStringAsFixed(precision)} ${units[unitIndex]}';
+  }
+}
+
+class AiInboxSuggestion {
+  const AiInboxSuggestion({
+    required this.label,
+    required this.body,
+    required this.confidence,
+  });
+
+  factory AiInboxSuggestion.fromJson(Map<String, dynamic> json) {
+    return AiInboxSuggestion(
+      label: _readString(json['label'], 'Suggested reply'),
+      body: _readString(json['body'], ''),
+      confidence: _readConfidence(json['confidence']),
+    );
+  }
+
+  final String label;
+  final String body;
+  final double confidence;
+
+  static String _readString(Object? value, String fallback) {
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+    return fallback;
+  }
+
+  static double _readConfidence(Object? value) {
+    if (value is num) return value.toDouble().clamp(0, 1);
+    if (value is String) return (double.tryParse(value) ?? 0).clamp(0, 1);
+    return 0;
+  }
+}
+
+class AiInboxIntent {
+  const AiInboxIntent({
+    required this.label,
+    required this.confidence,
+    required this.sentiment,
+    required this.urgency,
+  });
+
+  factory AiInboxIntent.fromJson(Map<String, dynamic>? json) {
+    return AiInboxIntent(
+      label: _readString(json?['label'], 'unknown'),
+      confidence: AiInboxSuggestion._readConfidence(json?['confidence']),
+      sentiment: _readString(json?['sentiment'], 'neutral'),
+      urgency: _readString(json?['urgency'], 'low'),
+    );
+  }
+
+  final String label;
+  final double confidence;
+  final String sentiment;
+  final String urgency;
+
+  String get displayLabel => label
+      .split('_')
+      .where((part) => part.isNotEmpty)
+      .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+      .join(' ');
+
+  static String _readString(Object? value, String fallback) {
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+    return fallback;
+  }
+}
+
+class AiInboxReview {
+  const AiInboxReview({
+    required this.spamRisk,
+    required this.readability,
+    required this.ctaClarity,
+    required this.warnings,
+    required this.tips,
+  });
+
+  factory AiInboxReview.fromJson(Map<String, dynamic>? json) {
+    return AiInboxReview(
+      spamRisk: _readString(json?['spamRisk'], 'low'),
+      readability: _readString(json?['readability'], 'easy'),
+      ctaClarity: _readString(json?['ctaClarity'], 'good'),
+      warnings: _readStringList(json?['warnings']),
+      tips: _readStringList(json?['tips']),
+    );
+  }
+
+  final String spamRisk;
+  final String readability;
+  final String ctaClarity;
+  final List<String> warnings;
+  final List<String> tips;
+
+  static String _readString(Object? value, String fallback) {
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+    return fallback;
+  }
+
+  static List<String> _readStringList(Object? value) {
+    if (value is! List) return const [];
+    return value
+        .whereType<String>()
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+  }
+}
+
+class AiInboxAssistResult {
+  const AiInboxAssistResult({
+    required this.action,
+    required this.intent,
+    required this.suggestedReplies,
+    required this.review,
+    this.summary,
+    this.recommendedAction,
+  });
+
+  factory AiInboxAssistResult.fromJson(Map<String, dynamic> json) {
+    final intentJson = json['intent'];
+    final reviewJson = json['review'];
+    final suggestions = json['suggestedReplies'];
+
+    return AiInboxAssistResult(
+      action: (json['action'] ?? '').toString(),
+      intent: AiInboxIntent.fromJson(
+        intentJson is Map<String, dynamic> ? intentJson : null,
+      ),
+      summary: _readNullableString(json['summary']),
+      suggestedReplies: suggestions is List
+          ? suggestions
+                .whereType<Map<String, dynamic>>()
+                .map(AiInboxSuggestion.fromJson)
+                .where((suggestion) => suggestion.body.isNotEmpty)
+                .toList()
+          : const [],
+      recommendedAction: _readNullableString(json['recommendedAction']),
+      review: AiInboxReview.fromJson(
+        reviewJson is Map<String, dynamic> ? reviewJson : null,
+      ),
+    );
+  }
+
+  final String action;
+  final AiInboxIntent intent;
+  final String? summary;
+  final List<AiInboxSuggestion> suggestedReplies;
+  final String? recommendedAction;
+  final AiInboxReview review;
+
+  static String? _readNullableString(Object? value) {
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+    return null;
+  }
+}
+
+class AiAssistAvailability {
+  const AiAssistAvailability({required this.isEnabled});
+
+  factory AiAssistAvailability.fromJson(Map<String, dynamic> json) {
+    final value = json['isEnabled'] ?? json['is_enabled'];
+    return AiAssistAvailability(isEnabled: value == true);
+  }
+
+  final bool isEnabled;
+}
+
+class WhatsAppSource {
+  const WhatsAppSource({
+    required this.id,
+    required this.label,
+    this.phoneNumber,
+    this.status,
+  });
+
+  factory WhatsAppSource.fromJson(Map<String, dynamic> json) {
+    final label = _firstString([
+      json['label'],
+      json['name'],
+      json['display_name'],
+      json['displayName'],
+      json['phone_number'],
+      json['phoneNumber'],
+    ]);
+
+    return WhatsAppSource(
+      id: (json['id'] ?? '').toString(),
+      label: label.isEmpty ? 'WhatsApp source' : label,
+      phoneNumber: _readNullableString(
+        json['phone_number'] ??
+            json['phoneNumber'] ??
+            json['phone_number_normalized'] ??
+            json['phoneNumberNormalized'],
+      ),
+      status: _readNullableString(json['status']),
+    );
+  }
+
+  final String id;
+  final String label;
+  final String? phoneNumber;
+  final String? status;
+
+  String get subtitle {
+    final parts = [
+      if (phoneNumber != null && phoneNumber!.isNotEmpty) phoneNumber!,
+      if (status != null && status!.isNotEmpty) status!,
+    ];
+    return parts.join(' - ');
+  }
+
+  static String _firstString(List<Object?> values) {
+    for (final value in values) {
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+    }
+    return '';
+  }
+
+  static String? _readNullableString(Object? value) {
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+    return null;
   }
 }
 
@@ -231,6 +750,79 @@ class InboxService {
         .map(InboxConversation.fromJson)
         .where((conversation) => conversation.id.isNotEmpty)
         .toList();
+  }
+
+  Future<InboxConversation?> fetchConversationForContact(
+    String contactId,
+  ) async {
+    final conversations = await fetchConversations();
+    for (final conversation in conversations) {
+      if (conversation.contactId == contactId) return conversation;
+    }
+    return null;
+  }
+
+  Future<List<WhatsAppSource>> fetchWhatsappSources() async {
+    final session = authService.session.value;
+    final query = <String, String>{};
+    final organizationId = session?.user.organizationId;
+    if (organizationId != null && organizationId.isNotEmpty) {
+      query['organization_id'] = organizationId;
+    }
+
+    final url = AppConfig.apiUri(
+      '/admin/whatsapp-accounts',
+    ).replace(queryParameters: query.isEmpty ? null : query);
+    final response = await authService.authenticatedGet(url);
+    final decoded = _decodeObject(response.body);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw InboxServiceException(_extractError(decoded));
+    }
+
+    final data = decoded['data'];
+    if (data is! List) {
+      throw const InboxServiceException(
+        'WhatsApp sources response was not recognized.',
+      );
+    }
+
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(WhatsAppSource.fromJson)
+        .where((source) => source.id.isNotEmpty)
+        .toList();
+  }
+
+  Future<InboxConversation> createConversationForContact({
+    required String contactId,
+    required String whatsappAccountId,
+  }) async {
+    final response = await authService.authenticatedPost(
+      AppConfig.apiUri('/contacts/$contactId/conversation'),
+      body: jsonEncode({'whatsappAccountId': whatsappAccountId}),
+    );
+    final decoded = _decodeObject(response.body);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw InboxServiceException(_extractError(decoded));
+    }
+
+    final data = decoded['data'];
+    if (data is! Map<String, dynamic>) {
+      throw const InboxServiceException(
+        'Created conversation response was not recognized.',
+      );
+    }
+
+    final conversation = InboxConversation.fromJson(data);
+    if (conversation.id.isEmpty) {
+      throw const InboxServiceException(
+        'Created conversation was not recognized.',
+      );
+    }
+
+    return conversation;
   }
 
   Future<List<InboxMessage>> fetchMessages(String conversationId) async {
@@ -304,6 +896,70 @@ class InboxService {
     return InboxMessage.fromJson(data);
   }
 
+  Future<AiInboxAssistResult> requestAiAssist({
+    required String conversationId,
+    required String action,
+    String? draft,
+    String? tone,
+  }) async {
+    final session = authService.session.value;
+    final organizationId = session?.user.organizationId;
+    final payload = <String, dynamic>{
+      'conversationId': conversationId,
+      'action': action,
+      if (organizationId != null && organizationId.isNotEmpty)
+        'organizationId': organizationId,
+      if (draft != null && draft.trim().isNotEmpty) 'draft': draft.trim(),
+      if (tone != null && tone.trim().isNotEmpty) 'tone': tone.trim(),
+    };
+
+    final response = await authService.authenticatedPost(
+      AppConfig.apiUri('/ai/inbox-assist'),
+      body: jsonEncode(payload),
+    );
+    final decoded = _decodeObject(response.body);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw InboxServiceException(
+        _extractError(decoded),
+        code: _extractErrorCode(decoded),
+      );
+    }
+
+    return AiInboxAssistResult.fromJson(decoded);
+  }
+
+  Future<AiAssistAvailability> fetchAiAssistAvailability() async {
+    final session = authService.session.value;
+    final query = <String, String>{};
+    final organizationId = session?.user.organizationId;
+    if (organizationId != null && organizationId.isNotEmpty) {
+      query['organization_id'] = organizationId;
+    }
+
+    final url = AppConfig.apiUri(
+      '/admin/organization-modules/ai_message_assist/status',
+    ).replace(queryParameters: query.isEmpty ? null : query);
+    final response = await authService.authenticatedGet(url);
+    final decoded = _decodeObject(response.body);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw InboxServiceException(
+        _extractError(decoded),
+        code: _extractErrorCode(decoded),
+      );
+    }
+
+    final data = decoded['data'];
+    if (data is! Map<String, dynamic>) {
+      throw const InboxServiceException(
+        'AI Assist status response was not recognized.',
+      );
+    }
+
+    return AiAssistAvailability.fromJson(data);
+  }
+
   Map<String, dynamic> _decodeObject(String body) {
     if (body.isEmpty) return <String, dynamic>{};
     final decoded = jsonDecode(body);
@@ -320,12 +976,19 @@ class InboxService {
 
     return 'Unable to load inbox conversations.';
   }
+
+  String? _extractErrorCode(Map<String, dynamic> decoded) {
+    final code = decoded['code'];
+    if (code is String && code.isNotEmpty) return code;
+    return null;
+  }
 }
 
 class InboxServiceException implements Exception {
-  const InboxServiceException(this.message);
+  const InboxServiceException(this.message, {this.code});
 
   final String message;
+  final String? code;
 
   @override
   String toString() => message;
