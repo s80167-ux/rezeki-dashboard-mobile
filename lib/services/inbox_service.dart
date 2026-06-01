@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
+
+import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
 import 'auth_service.dart';
@@ -719,6 +722,108 @@ class InboxService {
 
   final AuthService authService;
 
+  Stream<InboxUpdateEvent> watchInboxEvents() {
+    final controller = StreamController<InboxUpdateEvent>();
+    http.Client? client;
+
+    Future<void> connect() async {
+      var reconnectDelay = const Duration(seconds: 2);
+
+      while (!controller.isClosed) {
+        final session = authService.session.value;
+        if (session == null) {
+          controller.addError(const AuthServiceException('Please log in again.'));
+          return;
+        }
+
+        client = http.Client();
+
+        try {
+          final request = http.Request(
+            'GET',
+            AppConfig.apiUri('/mobile/inbox/events'),
+          );
+          request.headers.addAll(_sseHeaders(session));
+
+          final response = await client!.send(request);
+
+          if (response.statusCode == 401) {
+            const message = 'Your session expired. Please log in again.';
+            await authService.clearLocalSession(message: message);
+            controller.addError(const AuthServiceException(message));
+            return;
+          }
+
+          if (response.statusCode < 200 || response.statusCode >= 300) {
+            controller.addError(
+              InboxServiceException(
+                'Inbox realtime connection failed (${response.statusCode}).',
+              ),
+            );
+            await _waitBeforeReconnect(controller, reconnectDelay);
+            reconnectDelay = _nextReconnectDelay(reconnectDelay);
+            continue;
+          }
+
+          reconnectDelay = const Duration(seconds: 2);
+          var eventName = 'message';
+          final dataLines = <String>[];
+
+          await for (final line
+              in response.stream.transform(utf8.decoder).transform(
+                    const LineSplitter(),
+                  )) {
+            if (controller.isClosed) return;
+
+            if (line.isEmpty) {
+              final event = _parseSseEvent(eventName, dataLines);
+              if (event != null) {
+                controller.add(event);
+              }
+              eventName = 'message';
+              dataLines.clear();
+              continue;
+            }
+
+            if (line.startsWith(':')) {
+              continue;
+            }
+
+            if (line.startsWith('event:')) {
+              eventName = line.substring('event:'.length).trim();
+              continue;
+            }
+
+            if (line.startsWith('data:')) {
+              dataLines.add(line.substring('data:'.length).trimLeft());
+            }
+          }
+        } catch (error) {
+          if (!controller.isClosed) {
+            controller.addError(
+              InboxServiceException('Inbox realtime disconnected: $error'),
+            );
+          }
+        } finally {
+          client?.close();
+          client = null;
+        }
+
+        await _waitBeforeReconnect(controller, reconnectDelay);
+        reconnectDelay = _nextReconnectDelay(reconnectDelay);
+      }
+    }
+
+    controller.onListen = () {
+      unawaited(connect());
+    };
+    controller.onCancel = () {
+      client?.close();
+    };
+
+    return controller.stream;
+  }
+
   Future<List<InboxConversation>> fetchConversations({int? days}) async {
     final session = authService.session.value;
     final query = <String, String>{};
@@ -982,6 +1087,75 @@ class InboxService {
     if (code is String && code.isNotEmpty) return code;
     return null;
   }
+
+  Map<String, String> _sseHeaders(AuthSession session) {
+    final headers = <String, String>{
+      'Accept': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+    };
+
+    if (session.cookieHeader != null) {
+      headers['Cookie'] = session.cookieHeader!;
+    }
+    if (session.csrfToken != null) {
+      headers['x-csrf-token'] = session.csrfToken!;
+    }
+    if (session.accessToken != null) {
+      headers['Authorization'] = 'Bearer ${session.accessToken}';
+    }
+
+    return headers;
+  }
+
+  InboxUpdateEvent? _parseSseEvent(String eventName, List<String> dataLines) {
+    if (eventName != 'inbox_update' || dataLines.isEmpty) {
+      return null;
+    }
+
+    final decoded = jsonDecode(dataLines.join('\n'));
+    if (decoded is! Map<String, dynamic>) {
+      return null;
+    }
+
+    return InboxUpdateEvent.fromJson(decoded);
+  }
+
+  Duration _nextReconnectDelay(Duration current) {
+    final nextSeconds = current.inSeconds * 2;
+    return Duration(seconds: nextSeconds > 30 ? 30 : nextSeconds);
+  }
+
+  Future<void> _waitBeforeReconnect(
+    StreamController<InboxUpdateEvent> controller,
+    Duration delay,
+  ) async {
+    if (controller.isClosed) return;
+    await Future<void>.delayed(delay);
+  }
+}
+
+class InboxUpdateEvent {
+  const InboxUpdateEvent({
+    required this.type,
+    required this.conversationId,
+    required this.organizationId,
+    required this.timestamp,
+  });
+
+  factory InboxUpdateEvent.fromJson(Map<String, dynamic> json) {
+    return InboxUpdateEvent(
+      type: (json['type'] ?? '').toString(),
+      conversationId: (json['conversationId'] ?? '').toString(),
+      organizationId: (json['organizationId'] ?? '').toString(),
+      timestamp: DateTime.tryParse((json['timestamp'] ?? '').toString()) ??
+          DateTime.now(),
+    );
+  }
+
+  final String type;
+  final String conversationId;
+  final String organizationId;
+  final DateTime timestamp;
 }
 
 class InboxServiceException implements Exception {

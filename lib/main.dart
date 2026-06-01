@@ -1141,7 +1141,7 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
     authService: AuthService.instance,
   );
   late Future<List<InboxConversation>> _conversationsFuture;
-  Timer? _inboxPollTimer;
+  StreamSubscription<InboxUpdateEvent>? _inboxEventsSubscription;
   bool _isPollingConversations = false;
   String _inboxSearch = '';
   String _inboxFilter = 'All';
@@ -1155,16 +1155,18 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
     _conversationsFuture = _inboxService.fetchConversations(
       days: _activityDays,
     );
-    _inboxPollTimer = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => _pollConversations(),
+    _inboxEventsSubscription = _inboxService.watchInboxEvents().listen(
+      _handleInboxEvent,
+      onError: (_) {
+        // Realtime reconnects internally; keep the visible inbox stable.
+      },
     );
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _inboxPollTimer?.cancel();
+    _inboxEventsSubscription?.cancel();
     super.dispose();
   }
 
@@ -1177,6 +1179,17 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
 
   void refreshNow() {
     unawaited(_pollConversations(force: true));
+  }
+
+  void _handleInboxEvent(InboxUpdateEvent event) {
+    final organizationId = AuthService.instance.session.value?.user.organizationId;
+    if (organizationId != null &&
+        organizationId.isNotEmpty &&
+        event.organizationId != organizationId) {
+      return;
+    }
+
+    refreshNow();
   }
 
   Future<void> _pollConversations({bool force = false}) async {
@@ -1429,7 +1442,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
   );
   final TextEditingController _composerController = TextEditingController();
   late Future<List<InboxMessage>> _messagesFuture;
-  Timer? _messagePollTimer;
+  StreamSubscription<InboxUpdateEvent>? _inboxEventsSubscription;
   bool _isPollingMessages = false;
   bool _isSending = false;
   bool _isAiThinking = false;
@@ -1446,15 +1459,17 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
     _messagesFuture = _inboxService.fetchMessages(widget.conversation.id);
     _composerController.addListener(_handleComposerChanged);
     _loadAiAssistAvailability();
-    _messagePollTimer = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => _pollMessages(),
+    _inboxEventsSubscription = _inboxService.watchInboxEvents().listen(
+      _handleInboxEvent,
+      onError: (_) {
+        // Realtime reconnects internally; keep the visible thread stable.
+      },
     );
   }
 
   @override
   void dispose() {
-    _messagePollTimer?.cancel();
+    _inboxEventsSubscription?.cancel();
     _composerController.removeListener(_handleComposerChanged);
     _composerController.dispose();
     super.dispose();
@@ -1470,6 +1485,14 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
     final future = _inboxService.fetchMessages(widget.conversation.id);
     setState(() => _messagesFuture = future);
     await future;
+  }
+
+  void _handleInboxEvent(InboxUpdateEvent event) {
+    if (event.conversationId != widget.conversation.id) {
+      return;
+    }
+
+    unawaited(_pollMessages());
   }
 
   Future<void> _pollMessages() async {
