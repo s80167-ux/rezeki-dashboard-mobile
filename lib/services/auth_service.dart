@@ -111,6 +111,7 @@ class AuthService {
 
   final ValueNotifier<AuthSession?> session = ValueNotifier<AuthSession?>(null);
   final ValueNotifier<String?> authError = ValueNotifier<String?>(null);
+  final http.Client _client = http.Client();
   SharedPreferences? _preferences;
   StreamSubscription<Uri>? _linkSubscription;
 
@@ -201,7 +202,7 @@ class AuthService {
     }
 
     try {
-      final response = await http
+      final response = await _client
           .get(url, headers: _authHeaders(currentSession))
           .timeout(const Duration(seconds: 15));
       if (response.statusCode == 401) {
@@ -231,7 +232,7 @@ class AuthService {
     }
 
     try {
-      final response = await http
+      final response = await _client
           .post(url, headers: _authHeaders(currentSession), body: body)
           .timeout(const Duration(seconds: 15));
       if (response.statusCode == 401) {
@@ -261,7 +262,7 @@ class AuthService {
     }
 
     try {
-      final response = await http
+      final response = await _client
           .patch(url, headers: _authHeaders(currentSession), body: body)
           .timeout(const Duration(seconds: 15));
       if (response.statusCode == 401) {
@@ -456,7 +457,7 @@ class AuthService {
     Object? body,
   }) async {
     try {
-      final response = await http
+      final response = await _client
           .post(url, headers: headers, body: body)
           .timeout(const Duration(seconds: 15));
       return response;

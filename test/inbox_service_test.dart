@@ -37,4 +37,22 @@ void main() {
       expect(message.contentText, 'Extended hello');
     });
   });
+
+  group('MessagePagination', () {
+    test('reads backend pagination cursor response', () {
+      final pagination = MessagePagination.fromJson({
+        'limit': 20,
+        'hasMore': true,
+        'nextBefore': {
+          'sentAt': '2026-06-01T08:00:00.000Z',
+          'id': '00000000-0000-0000-0000-000000000001',
+        },
+      });
+
+      expect(pagination.limit, 20);
+      expect(pagination.hasMore, isTrue);
+      expect(pagination.nextBefore?.sentAt, '2026-06-01T08:00:00.000Z');
+      expect(pagination.nextBefore?.id, '00000000-0000-0000-0000-000000000001');
+    });
+  });
 }

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../config/app_config.dart';
 import 'auth_service.dart';
+import 'service_cache.dart';
 
 class CrmContact {
   const CrmContact({
@@ -148,9 +149,16 @@ class CrmContact {
 class ContactsService {
   const ContactsService({required this.authService});
 
+  static const Duration _cacheTtl = Duration(seconds: 45);
+  static final Map<String, ServiceCacheEntry<List<CrmContact>>> _contactsCache =
+      {};
+
   final AuthService authService;
 
-  Future<List<CrmContact>> fetchContacts({int? days}) async {
+  Future<List<CrmContact>> fetchContacts({
+    int? days,
+    bool forceRefresh = false,
+  }) async {
     final session = authService.session.value;
     final query = <String, String>{};
     final organizationId = session?.user.organizationId;
@@ -160,9 +168,14 @@ class ContactsService {
     if (days != null) {
       query['days'] = days.toString();
     }
+    final cacheKey = _cacheKey(organizationId, days);
+    final cached = _contactsCache[cacheKey];
+    if (!forceRefresh && cached != null && cached.isFresh(_cacheTtl)) {
+      return cached.value;
+    }
 
     final url = AppConfig.apiUri(
-      '/contacts',
+      '/mobile/v1/contacts',
     ).replace(queryParameters: query.isEmpty ? null : query);
     final response = await authService.authenticatedGet(url);
     final decoded = _decodeObject(response.body);
@@ -178,11 +191,16 @@ class ContactsService {
       );
     }
 
-    return data
+    final contacts = data
         .whereType<Map<String, dynamic>>()
         .map(CrmContact.fromJson)
         .where((contact) => contact.id.isNotEmpty)
         .toList();
+    _contactsCache[cacheKey] = ServiceCacheEntry(
+      value: contacts,
+      savedAt: DateTime.now(),
+    );
+    return contacts;
   }
 
   Future<CrmContact> fetchContact(String contactId) async {
@@ -194,7 +212,7 @@ class ContactsService {
     }
 
     final url = AppConfig.apiUri(
-      '/contacts/$contactId',
+      '/mobile/v1/contacts/$contactId',
     ).replace(queryParameters: query.isEmpty ? null : query);
     final response = await authService.authenticatedGet(url);
     final decoded = _decodeObject(response.body);
@@ -249,7 +267,9 @@ class ContactsService {
       );
     }
 
-    return CrmContact.fromJson(data);
+    final contact = CrmContact.fromJson(data);
+    _contactsCache.clear();
+    return contact;
   }
 
   Future<CrmContact> updateContact({
@@ -293,7 +313,9 @@ class ContactsService {
       );
     }
 
-    return CrmContact.fromJson(data);
+    final contact = CrmContact.fromJson(data);
+    _contactsCache.clear();
+    return contact;
   }
 
   Map<String, dynamic> _decodeObject(String body) {
@@ -311,6 +333,13 @@ class ContactsService {
     if (message is String && message.isNotEmpty) return message;
 
     return 'Unable to load CRM contacts.';
+  }
+
+  String _cacheKey(String? organizationId, int? days) {
+    final org = organizationId == null || organizationId.isEmpty
+        ? 'no-org'
+        : organizationId;
+    return '$org|days:${days ?? 'all'}';
   }
 }
 

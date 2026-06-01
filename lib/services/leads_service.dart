@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../config/app_config.dart';
 import 'auth_service.dart';
 import 'contacts_service.dart';
+import 'service_cache.dart';
 
 class SalesLead {
   const SalesLead({
@@ -128,18 +129,28 @@ class SalesLead {
 class LeadsService {
   const LeadsService({required this.authService});
 
+  static const Duration _cacheTtl = Duration(seconds: 45);
+  static final Map<String, ServiceCacheEntry<List<SalesLead>>> _leadsCache = {};
+
   final AuthService authService;
 
-  Future<List<SalesLead>> fetchLeads() async {
+  Future<List<SalesLead>> fetchLeads({bool forceRefresh = false}) async {
     final session = authService.session.value;
     final query = <String, String>{};
     final organizationId = session?.user.organizationId;
     if (organizationId != null && organizationId.isNotEmpty) {
       query['organization_id'] = organizationId;
     }
+    final cacheKey = organizationId == null || organizationId.isEmpty
+        ? 'no-org'
+        : organizationId;
+    final cached = _leadsCache[cacheKey];
+    if (!forceRefresh && cached != null && cached.isFresh(_cacheTtl)) {
+      return cached.value;
+    }
 
     final url = AppConfig.apiUri(
-      '/leads',
+      '/mobile/v1/leads',
     ).replace(queryParameters: query.isEmpty ? null : query);
     final response = await authService.authenticatedGet(url);
     final decoded = _decodeObject(response.body);
@@ -153,11 +164,16 @@ class LeadsService {
       throw const LeadsServiceException('Leads response was not recognized.');
     }
 
-    return data
+    final leads = data
         .whereType<Map<String, dynamic>>()
         .map(SalesLead.fromJson)
         .where((lead) => lead.id.isNotEmpty && lead.contactId.isNotEmpty)
         .toList();
+    _leadsCache[cacheKey] = ServiceCacheEntry(
+      value: leads,
+      savedAt: DateTime.now(),
+    );
+    return leads;
   }
 
   Map<String, dynamic> _decodeObject(String body) {

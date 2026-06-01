@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
 import 'auth_service.dart';
+import 'service_cache.dart';
 
 class InboxConversation {
   const InboxConversation({
@@ -312,6 +313,67 @@ class InboxMessage {
     if (value is String && value.trim().isNotEmpty) return value.trim();
     return null;
   }
+}
+
+class MessagePaginationCursor {
+  const MessagePaginationCursor({required this.sentAt, required this.id});
+
+  factory MessagePaginationCursor.fromJson(Map<String, dynamic> json) {
+    return MessagePaginationCursor(
+      sentAt: (json['sentAt'] ?? json['sent_at'] ?? '').toString(),
+      id: (json['id'] ?? '').toString(),
+    );
+  }
+
+  final String sentAt;
+  final String id;
+}
+
+class MessagePagination {
+  const MessagePagination({
+    required this.limit,
+    required this.hasMore,
+    required this.nextBefore,
+  });
+
+  factory MessagePagination.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return const MessagePagination(
+        limit: 0,
+        hasMore: false,
+        nextBefore: null,
+      );
+    }
+
+    final nextBefore = json['nextBefore'] ?? json['next_before'];
+    return MessagePagination(
+      limit: _readInt(json['limit']),
+      hasMore: json['hasMore'] == true || json['has_more'] == true,
+      nextBefore: nextBefore is Map
+          ? MessagePaginationCursor.fromJson(
+              Map<String, dynamic>.from(nextBefore),
+            )
+          : null,
+    );
+  }
+
+  final int limit;
+  final bool hasMore;
+  final MessagePaginationCursor? nextBefore;
+
+  static int _readInt(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+}
+
+class InboxMessagePage {
+  const InboxMessagePage({required this.messages, required this.pagination});
+
+  final List<InboxMessage> messages;
+  final MessagePagination pagination;
 }
 
 class MessageAttachmentPresentation {
@@ -787,6 +849,12 @@ class WhatsAppSource {
 class InboxService {
   const InboxService({required this.authService});
 
+  static const Duration _cacheTtl = Duration(seconds: 45);
+  static final Map<String, ServiceCacheEntry<List<InboxConversation>>>
+  _conversationCache = {};
+  static final Map<String, ServiceCacheEntry<List<WhatsAppSource>>>
+  _whatsappSourceCache = {};
+
   final AuthService authService;
 
   Stream<InboxUpdateEvent> watchInboxEvents() {
@@ -799,7 +867,9 @@ class InboxService {
       while (!controller.isClosed) {
         final session = authService.session.value;
         if (session == null) {
-          controller.addError(const AuthServiceException('Please log in again.'));
+          controller.addError(
+            const AuthServiceException('Please log in again.'),
+          );
           return;
         }
 
@@ -808,7 +878,7 @@ class InboxService {
         try {
           final request = http.Request(
             'GET',
-            AppConfig.apiUri('/mobile/inbox/events'),
+            AppConfig.apiUri('/mobile/v1/inbox/events'),
           );
           request.headers.addAll(_sseHeaders(session));
 
@@ -837,9 +907,9 @@ class InboxService {
           final dataLines = <String>[];
 
           await for (final line
-              in response.stream.transform(utf8.decoder).transform(
-                    const LineSplitter(),
-                  )) {
+              in response.stream
+                  .transform(utf8.decoder)
+                  .transform(const LineSplitter())) {
             if (controller.isClosed) return;
 
             if (line.isEmpty) {
@@ -891,7 +961,10 @@ class InboxService {
     return controller.stream;
   }
 
-  Future<List<InboxConversation>> fetchConversations({int? days}) async {
+  Future<List<InboxConversation>> fetchConversations({
+    int? days,
+    bool forceRefresh = false,
+  }) async {
     final session = authService.session.value;
     final query = <String, String>{};
     final organizationId = session?.user.organizationId;
@@ -901,9 +974,14 @@ class InboxService {
     if (days != null) {
       query['days'] = days.toString();
     }
+    final cacheKey = _cacheKey(organizationId, {'days': days?.toString()});
+    final cached = _conversationCache[cacheKey];
+    if (!forceRefresh && cached != null && cached.isFresh(_cacheTtl)) {
+      return cached.value;
+    }
 
     final url = AppConfig.apiUri(
-      '/inbox/threads',
+      '/mobile/v1/inbox',
     ).replace(queryParameters: query.isEmpty ? null : query);
     final response = await authService.authenticatedGet(url);
     final decoded = _decodeObject(response.body);
@@ -917,16 +995,28 @@ class InboxService {
       throw const InboxServiceException('Inbox response was not recognized.');
     }
 
-    return data
+    final conversations = data
         .whereType<Map<String, dynamic>>()
         .map(InboxConversation.fromJson)
         .where((conversation) => conversation.id.isNotEmpty)
         .toList();
+    _conversationCache[cacheKey] = ServiceCacheEntry(
+      value: conversations,
+      savedAt: DateTime.now(),
+    );
+    return conversations;
   }
 
   Future<InboxConversation?> fetchConversationForContact(
     String contactId,
   ) async {
+    for (final cached in _conversationCache.values) {
+      if (!cached.isFresh(_cacheTtl)) continue;
+      for (final conversation in cached.value) {
+        if (conversation.contactId == contactId) return conversation;
+      }
+    }
+
     final conversations = await fetchConversations();
     for (final conversation in conversations) {
       if (conversation.contactId == contactId) return conversation;
@@ -934,12 +1024,19 @@ class InboxService {
     return null;
   }
 
-  Future<List<WhatsAppSource>> fetchWhatsappSources() async {
+  Future<List<WhatsAppSource>> fetchWhatsappSources({
+    bool forceRefresh = false,
+  }) async {
     final session = authService.session.value;
     final query = <String, String>{};
     final organizationId = session?.user.organizationId;
     if (organizationId != null && organizationId.isNotEmpty) {
       query['organization_id'] = organizationId;
+    }
+    final cacheKey = _cacheKey(organizationId);
+    final cached = _whatsappSourceCache[cacheKey];
+    if (!forceRefresh && cached != null && cached.isFresh(_cacheTtl)) {
+      return cached.value;
     }
 
     final url = AppConfig.apiUri(
@@ -959,11 +1056,16 @@ class InboxService {
       );
     }
 
-    return data
+    final sources = data
         .whereType<Map<String, dynamic>>()
         .map(WhatsAppSource.fromJson)
         .where((source) => source.id.isNotEmpty)
         .toList();
+    _whatsappSourceCache[cacheKey] = ServiceCacheEntry(
+      value: sources,
+      savedAt: DateTime.now(),
+    );
+    return sources;
   }
 
   Future<InboxConversation> createConversationForContact({
@@ -994,19 +1096,43 @@ class InboxService {
       );
     }
 
+    _conversationCache.clear();
     return conversation;
   }
 
-  Future<List<InboxMessage>> fetchMessages(String conversationId) async {
+  Future<List<InboxMessage>> fetchMessages(
+    String conversationId, {
+    int? days,
+  }) async {
+    final page = await fetchMessagesPage(conversationId, days: days);
+    return page.messages;
+  }
+
+  Future<InboxMessagePage> fetchMessagesPage(
+    String conversationId, {
+    int? days,
+    int? limit,
+    MessagePaginationCursor? before,
+  }) async {
     final session = authService.session.value;
     final query = <String, String>{};
     final organizationId = session?.user.organizationId;
     if (organizationId != null && organizationId.isNotEmpty) {
       query['organization_id'] = organizationId;
     }
+    if (days != null) {
+      query['days'] = days.toString();
+    }
+    if (limit != null) {
+      query['limit'] = limit.toString();
+    }
+    if (before != null) {
+      query['before_sent_at'] = before.sentAt;
+      query['before_id'] = before.id;
+    }
 
     final url = AppConfig.apiUri(
-      '/inbox/threads/$conversationId/messages',
+      '/mobile/v1/inbox/$conversationId/messages',
     ).replace(queryParameters: query.isEmpty ? null : query);
     final response = await authService.authenticatedGet(url);
     final decoded = _decodeObject(response.body);
@@ -1022,11 +1148,19 @@ class InboxService {
       );
     }
 
-    return data
+    final messages = data
         .whereType<Map<String, dynamic>>()
         .map(InboxMessage.fromJson)
         .where((message) => message.id.isNotEmpty)
         .toList();
+    return InboxMessagePage(
+      messages: messages,
+      pagination: MessagePagination.fromJson(
+        decoded['pagination'] is Map
+            ? Map<String, dynamic>.from(decoded['pagination'] as Map)
+            : null,
+      ),
+    );
   }
 
   Future<InboxMessage> sendMessage({
@@ -1051,7 +1185,7 @@ class InboxService {
     };
 
     final response = await authService.authenticatedPost(
-      AppConfig.apiUri('/messages/send'),
+      AppConfig.apiUri('/mobile/v1/messages/send'),
       body: jsonEncode(payload),
     );
     final decoded = _decodeObject(response.body);
@@ -1065,7 +1199,9 @@ class InboxService {
       throw const InboxServiceException('Send response was not recognized.');
     }
 
-    return InboxMessage.fromJson(data);
+    final message = InboxMessage.fromJson(data);
+    _conversationCache.clear();
+    return message;
   }
 
   Future<AiInboxAssistResult> requestAiAssist({
@@ -1155,6 +1291,23 @@ class InboxService {
     return null;
   }
 
+  String _cacheKey(
+    String? organizationId, [
+    Map<String, String?> extra = const {},
+  ]) {
+    final parts = <String>[
+      organizationId == null || organizationId.isEmpty
+          ? 'no-org'
+          : organizationId,
+    ];
+    for (final entry in extra.entries) {
+      if (entry.value != null && entry.value!.isNotEmpty) {
+        parts.add('${entry.key}:${entry.value}');
+      }
+    }
+    return parts.join('|');
+  }
+
   Map<String, String> _sseHeaders(AuthSession session) {
     final headers = <String, String>{
       'Accept': 'text/event-stream',
@@ -1214,7 +1367,8 @@ class InboxUpdateEvent {
       type: (json['type'] ?? '').toString(),
       conversationId: (json['conversationId'] ?? '').toString(),
       organizationId: (json['organizationId'] ?? '').toString(),
-      timestamp: DateTime.tryParse((json['timestamp'] ?? '').toString()) ??
+      timestamp:
+          DateTime.tryParse((json['timestamp'] ?? '').toString()) ??
           DateTime.now(),
     );
   }

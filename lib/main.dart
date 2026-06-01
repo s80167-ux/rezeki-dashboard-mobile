@@ -502,27 +502,19 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<_DashboardSnapshot> _loadDashboard() async {
-    List<InboxConversation> conversations = const [];
-    List<CrmContact> contacts = const [];
-    List<SalesLead> leads = const [];
+    final conversationsFuture = _inboxService
+        .fetchConversations(days: 30)
+        .catchError((_) => const <InboxConversation>[]);
+    final contactsFuture = _contactsService
+        .fetchContacts(days: 30)
+        .catchError((_) => const <CrmContact>[]);
+    final leadsFuture = _leadsService.fetchLeads().catchError(
+      (_) => const <SalesLead>[],
+    );
 
-    try {
-      conversations = await _inboxService.fetchConversations(days: 30);
-    } catch (_) {
-      conversations = const [];
-    }
-
-    try {
-      contacts = await _contactsService.fetchContacts(days: 30);
-    } catch (_) {
-      contacts = const [];
-    }
-
-    try {
-      leads = await _leadsService.fetchLeads();
-    } catch (_) {
-      leads = const [];
-    }
+    final conversations = await conversationsFuture;
+    final contacts = await contactsFuture;
+    final leads = await leadsFuture;
 
     return _DashboardSnapshot(
       conversations: conversations,
@@ -733,18 +725,17 @@ class _SalesPageState extends State<SalesPage> {
   }
 
   Future<_SalesSnapshot> _loadSales() async {
-    final leads = await _leadsService.fetchLeads();
-    var contactsById = const <String, CrmContact>{};
+    final leadsFuture = _leadsService.fetchLeads();
+    final contactsFuture = _contactsService
+        .fetchContacts(days: 30)
+        .catchError((_) => const <CrmContact>[]);
 
-    try {
-      final contacts = await _contactsService.fetchContacts(days: 30);
-      contactsById = {
-        for (final contact in contacts)
-          if (contact.id.isNotEmpty) contact.id: contact,
-      };
-    } catch (_) {
-      contactsById = const {};
-    }
+    final leads = await leadsFuture;
+    final contacts = await contactsFuture;
+    final contactsById = {
+      for (final contact in contacts)
+        if (contact.id.isNotEmpty) contact.id: contact,
+    };
 
     return _SalesSnapshot(leads: leads, contactsById: contactsById);
   }
@@ -1142,6 +1133,7 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
   );
   late Future<List<InboxConversation>> _conversationsFuture;
   StreamSubscription<InboxUpdateEvent>? _inboxEventsSubscription;
+  Timer? _conversationRefreshDebounce;
   bool _isPollingConversations = false;
   String _inboxSearch = '';
   String _inboxFilter = 'All';
@@ -1166,6 +1158,7 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _conversationRefreshDebounce?.cancel();
     _inboxEventsSubscription?.cancel();
     super.dispose();
   }
@@ -1182,14 +1175,23 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
   }
 
   void _handleInboxEvent(InboxUpdateEvent event) {
-    final organizationId = AuthService.instance.session.value?.user.organizationId;
+    final organizationId =
+        AuthService.instance.session.value?.user.organizationId;
     if (organizationId != null &&
         organizationId.isNotEmpty &&
         event.organizationId != organizationId) {
       return;
     }
 
-    refreshNow();
+    _scheduleConversationRefresh();
+  }
+
+  void _scheduleConversationRefresh() {
+    _conversationRefreshDebounce?.cancel();
+    _conversationRefreshDebounce = Timer(
+      const Duration(milliseconds: 750),
+      refreshNow,
+    );
   }
 
   Future<void> _pollConversations({bool force = false}) async {
@@ -1198,6 +1200,7 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
     try {
       final conversations = await _inboxService.fetchConversations(
         days: _activityDays,
+        forceRefresh: true,
       );
       if (!mounted) return;
       setState(() => _conversationsFuture = Future.value(conversations));
@@ -1209,14 +1212,20 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
   }
 
   Future<void> _refresh() async {
-    final future = _inboxService.fetchConversations(days: _activityDays);
+    final future = _inboxService.fetchConversations(
+      days: _activityDays,
+      forceRefresh: true,
+    );
     setState(() => _conversationsFuture = future);
     await future;
   }
 
   void _setActivityDays(int? days) {
     if (_activityDays == days) return;
-    final future = _inboxService.fetchConversations(days: days);
+    final future = _inboxService.fetchConversations(
+      days: days,
+      forceRefresh: true,
+    );
     setState(() {
       _activityDays = days;
       _conversationsFuture = future;
@@ -1403,7 +1412,10 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
       ),
     );
     if (!mounted) return;
-    final future = _inboxService.fetchConversations(days: _activityDays);
+    final future = _inboxService.fetchConversations(
+      days: _activityDays,
+      forceRefresh: true,
+    );
     setState(() => _conversationsFuture = future);
   }
 
@@ -1440,10 +1452,17 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
   final InboxService _inboxService = InboxService(
     authService: AuthService.instance,
   );
+  static const int _activityDays = 30;
+  static const int _initialMessagePageSize = 15;
+  static const int _olderMessagePageSize = 5;
   final TextEditingController _composerController = TextEditingController();
   late Future<List<InboxMessage>> _messagesFuture;
   StreamSubscription<InboxUpdateEvent>? _inboxEventsSubscription;
+  Timer? _messageRefreshDebounce;
+  List<InboxMessage> _messages = const [];
+  MessagePagination? _messagesPagination;
   bool _isPollingMessages = false;
+  bool _isLoadingOlderMessages = false;
   bool _isSending = false;
   bool _isAiThinking = false;
   bool _isCheckingAiAvailability = true;
@@ -1456,7 +1475,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
   @override
   void initState() {
     super.initState();
-    _messagesFuture = _inboxService.fetchMessages(widget.conversation.id);
+    _messagesFuture = _loadLatestMessages();
     _composerController.addListener(_handleComposerChanged);
     _loadAiAssistAvailability();
     _inboxEventsSubscription = _inboxService.watchInboxEvents().listen(
@@ -1469,6 +1488,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
 
   @override
   void dispose() {
+    _messageRefreshDebounce?.cancel();
     _inboxEventsSubscription?.cancel();
     _composerController.removeListener(_handleComposerChanged);
     _composerController.dispose();
@@ -1482,7 +1502,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
   }
 
   Future<void> _refresh() async {
-    final future = _inboxService.fetchMessages(widget.conversation.id);
+    final future = _loadLatestMessages(mergeExisting: true);
     setState(() => _messagesFuture = future);
     await future;
   }
@@ -1492,16 +1512,22 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
       return;
     }
 
-    unawaited(_pollMessages());
+    _scheduleMessageRefresh();
+  }
+
+  void _scheduleMessageRefresh() {
+    _messageRefreshDebounce?.cancel();
+    _messageRefreshDebounce = Timer(
+      const Duration(milliseconds: 750),
+      () => unawaited(_pollMessages()),
+    );
   }
 
   Future<void> _pollMessages() async {
     if (_isPollingMessages) return;
     _isPollingMessages = true;
     try {
-      final messages = await _inboxService.fetchMessages(
-        widget.conversation.id,
-      );
+      final messages = await _loadLatestMessages(mergeExisting: true);
       if (!mounted) return;
       setState(() => _messagesFuture = Future.value(messages));
     } catch (_) {
@@ -1509,6 +1535,114 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
     } finally {
       _isPollingMessages = false;
     }
+  }
+
+  Future<List<InboxMessage>> _loadLatestMessages({
+    bool mergeExisting = false,
+  }) async {
+    final page = await _inboxService.fetchMessagesPage(
+      widget.conversation.id,
+      days: _activityDays,
+      limit: _initialMessagePageSize,
+    );
+    final messages = mergeExisting
+        ? _mergeMessages(_messages, page.messages)
+        : _sortMessages(page.messages);
+
+    if (mounted) {
+      _messages = messages;
+      _messagesPagination = _preserveOldestPaginationCursor(
+        mergeExisting ? _messagesPagination : null,
+        page.pagination,
+      );
+    }
+
+    return messages;
+  }
+
+  Future<void> _loadOlderMessages() async {
+    final nextBefore = _messagesPagination?.nextBefore;
+    if (_isLoadingOlderMessages ||
+        _messagesPagination?.hasMore != true ||
+        nextBefore == null) {
+      return;
+    }
+
+    setState(() => _isLoadingOlderMessages = true);
+    try {
+      final page = await _inboxService.fetchMessagesPage(
+        widget.conversation.id,
+        days: _activityDays,
+        limit: _olderMessagePageSize,
+        before: nextBefore,
+      );
+      if (!mounted) return;
+
+      final messages = _mergeMessages(_messages, page.messages);
+      setState(() {
+        _messages = messages;
+        _messagesPagination = page.pagination;
+        _messagesFuture = Future.value(messages);
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_errorText(error))));
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingOlderMessages = false);
+      }
+    }
+  }
+
+  List<InboxMessage> _mergeMessages(
+    List<InboxMessage> existing,
+    List<InboxMessage> incoming,
+  ) {
+    final messagesById = <String, InboxMessage>{
+      for (final message in existing) message.id: message,
+    };
+    for (final message in incoming) {
+      messagesById[message.id] = message;
+    }
+    return _sortMessages(messagesById.values.toList());
+  }
+
+  List<InboxMessage> _sortMessages(List<InboxMessage> messages) {
+    return [...messages]..sort((left, right) {
+      final leftTime = left.sentAt?.millisecondsSinceEpoch ?? 0;
+      final rightTime = right.sentAt?.millisecondsSinceEpoch ?? 0;
+      final timeDelta = leftTime.compareTo(rightTime);
+      return timeDelta == 0 ? left.id.compareTo(right.id) : timeDelta;
+    });
+  }
+
+  MessagePagination? _preserveOldestPaginationCursor(
+    MessagePagination? current,
+    MessagePagination incoming,
+  ) {
+    if (current == null) return incoming;
+    if (!current.hasMore ||
+        _isOlderOrSameCursor(current.nextBefore, incoming.nextBefore)) {
+      return current;
+    }
+    return incoming;
+  }
+
+  bool _isOlderOrSameCursor(
+    MessagePaginationCursor? left,
+    MessagePaginationCursor? right,
+  ) {
+    if (left == null) return false;
+    if (right == null) return true;
+
+    final leftTime =
+        DateTime.tryParse(left.sentAt)?.millisecondsSinceEpoch ?? 0;
+    final rightTime =
+        DateTime.tryParse(right.sentAt)?.millisecondsSinceEpoch ?? 0;
+    return leftTime < rightTime ||
+        (leftTime == rightTime && left.id.compareTo(right.id) <= 0);
   }
 
   @override
@@ -1566,8 +1700,17 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
                         physics: const AlwaysScrollableScrollPhysics(),
                         reverse: true,
                         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                        itemCount: messages.length,
+                        itemCount:
+                            messages.length +
+                            (_messagesPagination?.hasMore == true ? 1 : 0),
                         itemBuilder: (context, index) {
+                          if (index == messages.length) {
+                            return _ShowMoreMessagesButton(
+                              isLoading: _isLoadingOlderMessages,
+                              onPressed: _loadOlderMessages,
+                            );
+                          }
+
                           final message = messages[messages.length - 1 - index];
                           return _MessageBubble(message: message);
                         },
@@ -1620,7 +1763,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
       );
       _composerController.clear();
       _aiResult = null;
-      final future = _inboxService.fetchMessages(widget.conversation.id);
+      final future = _loadLatestMessages(mergeExisting: true);
       setState(() => _messagesFuture = future);
       _scheduleStatusRefreshes();
     } on InboxServiceException catch (error) {
@@ -1647,9 +1790,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
 
   Future<bool> _recoverSentMessageAfterError(String text) async {
     try {
-      final messages = await _inboxService.fetchMessages(
-        widget.conversation.id,
-      );
+      final messages = await _loadLatestMessages(mergeExisting: true);
       final normalizedText = text.trim();
       final now = DateTime.now();
       final hasSentMessage = messages.any((message) {
@@ -1759,7 +1900,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
       Future<void>.delayed(delay, () {
         if (!mounted) return;
         setState(() {
-          _messagesFuture = _inboxService.fetchMessages(widget.conversation.id);
+          _messagesFuture = _loadLatestMessages(mergeExisting: true);
         });
       });
     }
@@ -1805,14 +1946,20 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   Future<void> _refresh() async {
-    final future = _contactsService.fetchContacts(days: _activityDays);
+    final future = _contactsService.fetchContacts(
+      days: _activityDays,
+      forceRefresh: true,
+    );
     setState(() => _contactsFuture = future);
     await future;
   }
 
   void _setActivityDays(int? days) {
     if (_activityDays == days) return;
-    final future = _contactsService.fetchContacts(days: days);
+    final future = _contactsService.fetchContacts(
+      days: days,
+      forceRefresh: true,
+    );
     setState(() {
       _activityDays = days;
       _contactsFuture = future;
@@ -1998,7 +2145,10 @@ class _ContactsPageState extends State<ContactsPage> {
       ),
     );
     if (!mounted) return;
-    final future = _contactsService.fetchContacts(days: _activityDays);
+    final future = _contactsService.fetchContacts(
+      days: _activityDays,
+      forceRefresh: true,
+    );
     setState(() => _contactsFuture = future);
   }
 
@@ -2008,7 +2158,10 @@ class _ContactsPageState extends State<ContactsPage> {
     );
 
     if (created == null || !mounted) return;
-    final future = _contactsService.fetchContacts(days: _activityDays);
+    final future = _contactsService.fetchContacts(
+      days: _activityDays,
+      forceRefresh: true,
+    );
     setState(() => _contactsFuture = future);
     ScaffoldMessenger.of(
       context,
@@ -3538,6 +3691,39 @@ IconData _conversationSourceIcon(String? channel) {
     case 'whatsapp':
     default:
       return Icons.chat_outlined;
+  }
+}
+
+class _ShowMoreMessagesButton extends StatelessWidget {
+  const _ShowMoreMessagesButton({
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  final bool isLoading;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Center(
+        child: OutlinedButton.icon(
+          onPressed: isLoading ? null : onPressed,
+          icon: isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.expand_less_outlined, size: 18),
+          label: Text(isLoading ? 'Loading...' : 'Show more'),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          ),
+        ),
+      ),
+    );
   }
 }
 
