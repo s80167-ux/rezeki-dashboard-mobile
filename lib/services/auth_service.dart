@@ -461,12 +461,12 @@ class AuthService {
           .timeout(const Duration(seconds: 15));
       return response;
     } on TimeoutException {
-      throw const AuthServiceException(
-        'Server is not responding. Check your network or API URL.',
+      throw AuthServiceException(
+        'Server is not responding at ${url.origin}. Check your network or API URL.',
       );
     } on SocketException {
-      throw const AuthServiceException(
-        'Cannot connect to server. Check your network or API URL.',
+      throw AuthServiceException(
+        'Cannot connect to ${url.origin}. Check your network or API URL.',
       );
     } on http.ClientException catch (e) {
       throw AuthServiceException('Network error: ${e.message}');

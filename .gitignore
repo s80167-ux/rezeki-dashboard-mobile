@@ -36,6 +36,8 @@ migrate_working_dir/
 # Local run config with machine-specific OAuth/API values
 run_config.local.bat
 run_config.local.sh
+*.local.bat
+*.local.sh
 
 # Symbolication related
 app.*.symbols

@@ -1,8 +1,8 @@
 @echo off
 setlocal
 
-set "REZEKI_API_BASE_URL=http://192.168.68.139:4000/api"
-set "REZEKI_DEVICE_ID=HMRG8HA679WGRO6H"
+set "REZEKI_API_BASE_URL=http://10.0.2.2:4000/api"
+set "REZEKI_DEVICE_ID=emulator-5554"
 
 if exist "%~dp0run_config.local.bat" (
   call "%~dp0run_config.local.bat"
@@ -20,7 +20,11 @@ if "%REZEKI_GOOGLE_SERVER_CLIENT_ID%"=="" (
 echo Running Rezeki Dashboard...
 echo API: %REZEKI_API_BASE_URL%
 echo Device: %REZEKI_DEVICE_ID%
+if /I "%REZEKI_SKIP_API_CHECK%"=="1" echo API preflight: skipped
+
+call "%~dp0check_dev.bat"
+if errorlevel 1 exit /b 1
 
 flutter run -d "%REZEKI_DEVICE_ID%" ^
-  --dart-define=REZEKI_API_BASE_URL="%REZEKI_API_BASE_URL%" ^
-  --dart-define=REZEKI_GOOGLE_SERVER_CLIENT_ID="%REZEKI_GOOGLE_SERVER_CLIENT_ID%"
+  --dart-define=REZEKI_API_BASE_URL=%REZEKI_API_BASE_URL% ^
+  --dart-define=REZEKI_GOOGLE_SERVER_CLIENT_ID=%REZEKI_GOOGLE_SERVER_CLIENT_ID%

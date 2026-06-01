@@ -230,10 +230,77 @@ class InboxMessage {
     final text = json['content_text'] ?? json['contentText'];
     if (text is String && text.trim().isNotEmpty) return text.trim();
 
+    final rawText = _readRawMessageText(
+      json['content_json'] ?? json['contentJson'],
+    );
+    if (rawText != null) return rawText;
+
     final type = json['message_type'] ?? json['messageType'];
     if (type is String && type.trim().isNotEmpty) return '[${type.trim()}]';
 
     return '[message]';
+  }
+
+  static String? _readRawMessageText(Object? contentJson) {
+    final rawMessage = _unwrapRawMessage(
+      _rawMessageNode(_asRecord(contentJson)),
+    );
+    if (rawMessage == null) return null;
+
+    return _asString(rawMessage['conversation']) ??
+        _asString(_asRecord(rawMessage['extendedTextMessage'])?['text']) ??
+        _asString(_asRecord(rawMessage['imageMessage'])?['caption']) ??
+        _asString(_asRecord(rawMessage['videoMessage'])?['caption']) ??
+        _asString(_asRecord(rawMessage['documentMessage'])?['caption']) ??
+        _asString(
+          _asRecord(
+            rawMessage['templateButtonReplyMessage'],
+          )?['selectedDisplayText'],
+        ) ??
+        _asString(
+          _asRecord(
+            rawMessage['buttonsResponseMessage'],
+          )?['selectedDisplayText'],
+        ) ??
+        _asString(_asRecord(rawMessage['listResponseMessage'])?['title']) ??
+        _asString(_asRecord(rawMessage['reactionMessage'])?['text']);
+  }
+
+  static Map<String, dynamic>? _rawMessageNode(Map<String, dynamic>? content) {
+    final message = _asRecord(content?['message']);
+    if (message != null) return message;
+    return _asRecord(_asRecord(content?['rawPayload'])?['message']);
+  }
+
+  static Map<String, dynamic>? _unwrapRawMessage(
+    Map<String, dynamic>? node, [
+    int depth = 0,
+  ]) {
+    if (node == null || depth > 8) return node;
+    final wrapped =
+        _asRecord(_asRecord(node['ephemeralMessage'])?['message']) ??
+        _asRecord(_asRecord(node['viewOnceMessage'])?['message']) ??
+        _asRecord(_asRecord(node['viewOnceMessageV2'])?['message']) ??
+        _asRecord(_asRecord(node['viewOnceMessageV2Extension'])?['message']) ??
+        _asRecord(_asRecord(node['documentWithCaptionMessage'])?['message']) ??
+        _asRecord(_asRecord(node['editedMessage'])?['message']) ??
+        _asRecord(
+          _asRecord(
+            _asRecord(node['protocolMessage'])?['editedMessage'],
+          )?['message'],
+        );
+    return wrapped == null ? node : _unwrapRawMessage(wrapped, depth + 1);
+  }
+
+  static Map<String, dynamic>? _asRecord(Object? value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return null;
+  }
+
+  static String? _asString(Object? value) {
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+    return null;
   }
 
   static DateTime? _readDate(Object? value) {
