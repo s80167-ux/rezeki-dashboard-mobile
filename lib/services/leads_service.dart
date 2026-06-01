@@ -176,6 +176,66 @@ class LeadsService {
     return leads;
   }
 
+  Future<SalesLead> fetchLead(String leadId) async {
+    final session = authService.session.value;
+    final query = <String, String>{};
+    final organizationId = session?.user.organizationId;
+    if (organizationId != null && organizationId.isNotEmpty) {
+      query['organization_id'] = organizationId;
+    }
+
+    final url = AppConfig.apiUri(
+      '/mobile/v1/leads/$leadId',
+    ).replace(queryParameters: query.isEmpty ? null : query);
+    final response = await authService.authenticatedGet(url);
+    final decoded = _decodeObject(response.body);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw LeadsServiceException(_extractError(decoded));
+    }
+
+    final data = decoded['data'];
+    if (data is! Map<String, dynamic>) {
+      throw const LeadsServiceException('Lead response was not recognized.');
+    }
+
+    return SalesLead.fromJson(data);
+  }
+
+  Future<SalesLead> updateLead({
+    required String leadId,
+    String? status,
+    String? source,
+    String? temperature,
+    String? assignedUserId,
+  }) async {
+    final payload = <String, dynamic>{};
+    if (status != null) payload['status'] = status;
+    if (source != null) payload['source'] = source;
+    if (temperature != null) payload['temperature'] = temperature;
+    if (assignedUserId != null) payload['assignedUserId'] = assignedUserId;
+
+    final response = await authService.authenticatedPatch(
+      AppConfig.apiUri('/mobile/v1/leads/$leadId'),
+      body: jsonEncode(payload),
+    );
+    final decoded = _decodeObject(response.body);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw LeadsServiceException(_extractError(decoded));
+    }
+
+    final data = decoded['data'];
+    if (data is! Map<String, dynamic>) {
+      throw const LeadsServiceException(
+        'Updated lead response was not recognized.',
+      );
+    }
+
+    _leadsCache.clear();
+    return SalesLead.fromJson(data);
+  }
+
   Map<String, dynamic> _decodeObject(String body) {
     if (body.isEmpty) return <String, dynamic>{};
     final decoded = jsonDecode(body);

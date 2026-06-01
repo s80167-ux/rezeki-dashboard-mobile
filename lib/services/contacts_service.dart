@@ -288,7 +288,7 @@ class ContactsService {
     }
 
     final url = AppConfig.apiUri(
-      '/contacts/$contactId',
+      '/mobile/v1/contacts/$contactId',
     ).replace(queryParameters: query.isEmpty ? null : query);
     final response = await authService.authenticatedPatch(
       url,

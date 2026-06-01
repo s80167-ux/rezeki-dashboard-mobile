@@ -10,6 +10,7 @@ import 'services/auth_service.dart';
 import 'services/contacts_service.dart';
 import 'services/inbox_service.dart';
 import 'services/leads_service.dart';
+import 'services/quick_replies_service.dart';
 import 'theme/rezeki_theme.dart';
 
 // =============================================================================
@@ -922,11 +923,9 @@ class _SalesPageState extends State<SalesPage> {
   }
 
   Future<void> _openLead(SalesLead lead) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ContactDetailPage(contact: lead.toContactStub()),
-      ),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => LeadDetailPage(lead: lead)));
     if (!mounted) return;
     final future = _loadSales();
     setState(() => _salesFuture = future);
@@ -940,6 +939,212 @@ class _SalesSnapshot {
 
   final List<SalesLead> leads;
   final Map<String, CrmContact> contactsById;
+}
+
+// ---------------------------------------------------------------------------
+// Lead Detail Page
+// ---------------------------------------------------------------------------
+
+class LeadDetailPage extends StatefulWidget {
+  const LeadDetailPage({super.key, required this.lead});
+
+  final SalesLead lead;
+
+  @override
+  State<LeadDetailPage> createState() => _LeadDetailPageState();
+}
+
+class _LeadDetailPageState extends State<LeadDetailPage> {
+  static const _statusOptions = [
+    ('new_lead', 'New Lead'),
+    ('contacted', 'Contacted'),
+    ('interested', 'Interested'),
+    ('processing', 'Processing'),
+    ('closed_won', 'Closed Won'),
+    ('closed_lost', 'Closed Lost'),
+  ];
+
+  final LeadsService _leadsService = LeadsService(
+    authService: AuthService.instance,
+  );
+  late Future<SalesLead> _leadFuture;
+  bool _isSavingStatus = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _leadFuture = _leadsService.fetchLead(widget.lead.id);
+  }
+
+  Future<void> _refresh() async {
+    final future = _leadsService.fetchLead(widget.lead.id);
+    setState(() => _leadFuture = future);
+    await future;
+  }
+
+  Future<void> _updateStatus(SalesLead lead, String status) async {
+    if (_isSavingStatus || status == lead.status) return;
+    setState(() {
+      _isSavingStatus = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final updated = await _leadsService.updateLead(
+        leadId: lead.id,
+        status: status,
+      );
+      if (!mounted) return;
+      setState(() => _leadFuture = Future.value(updated));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Lead status updated.')));
+    } on LeadsServiceException catch (error) {
+      setState(() => _errorMessage = error.message);
+    } on AuthServiceException catch (error) {
+      setState(() => _errorMessage = error.message);
+    } catch (_) {
+      setState(() => _errorMessage = 'Unable to update lead status.');
+    } finally {
+      if (mounted) setState(() => _isSavingStatus = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: RezekiTheme.appBackgroundGradient,
+        ),
+        child: SafeArea(
+          child: FutureBuilder<SalesLead>(
+            future: _leadFuture,
+            initialData: widget.lead,
+            builder: (context, snapshot) {
+              final lead = snapshot.data ?? widget.lead;
+              final status = _normalizeStatus(lead.displayStatus);
+
+              return RefreshIndicator(
+                onRefresh: _refresh,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: _SimpleDetailHeader(
+                        title: lead.name,
+                        subtitle: lead.phone,
+                        icon: Icons.trending_up_outlined,
+                      ),
+                    ),
+                    if (snapshot.hasError || _errorMessage != null)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                          child: _InlineNotice(
+                            message:
+                                _errorMessage ?? _leadError(snapshot.error),
+                          ),
+                        ),
+                      ),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                      sliver: SliverList.list(
+                        children: [
+                          _DetailSection(
+                            title: 'Lead',
+                            children: [
+                              _DetailRow(
+                                icon: Icons.flag_outlined,
+                                label: 'Status',
+                                value: status,
+                              ),
+                              _DetailRow(
+                                icon: Icons.source_outlined,
+                                label: 'Source',
+                                value: lead.source ?? 'Not set',
+                              ),
+                              _DetailRow(
+                                icon: Icons.local_fire_department_outlined,
+                                label: 'Temperature',
+                                value: lead.temperatureLabel ?? 'Not set',
+                              ),
+                              _DetailRow(
+                                icon: Icons.schedule_outlined,
+                                label: 'Updated',
+                                value: _formatNullableDate(lead.updatedAt),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: DropdownButtonFormField<String>(
+                                initialValue: lead.status,
+                                decoration: const InputDecoration(
+                                  labelText: 'Update status',
+                                  prefixIcon: Icon(Icons.swap_horiz_outlined),
+                                ),
+                                items: _statusOptions
+                                    .map(
+                                      (option) => DropdownMenuItem(
+                                        value: option.$1,
+                                        child: Text(option.$2),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: _isSavingStatus
+                                    ? null
+                                    : (value) {
+                                        if (value != null) {
+                                          _updateStatus(lead, value);
+                                        }
+                                      },
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _DetailSection(
+                            title: 'Customer',
+                            children: [
+                              _DetailRow(
+                                icon: Icons.person_outline,
+                                label: 'Name',
+                                value: lead.name,
+                              ),
+                              _DetailRow(
+                                icon: Icons.phone_outlined,
+                                label: 'Phone',
+                                value: lead.phone,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _leadError(Object? error) {
+    if (error is LeadsServiceException) return error.message;
+    if (error is AuthServiceException) return error.message;
+    return 'Unable to load lead detail.';
+  }
+
+  String _formatNullableDate(DateTime? value) {
+    if (value == null) return 'Not available';
+    return '${value.day}/${value.month}/${value.year}';
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1137,7 +1342,7 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
   bool _isPollingConversations = false;
   String _inboxSearch = '';
   String _inboxFilter = 'All';
-  int? _activityDays = 30;
+  int? _activityDays;
   final List<String> _inboxFilters = ['All', 'Unread', 'WhatsApp', 'Social'];
 
   @override
@@ -1146,6 +1351,7 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _conversationsFuture = _inboxService.fetchConversations(
       days: _activityDays,
+      forceRefresh: true,
     );
     _inboxEventsSubscription = _inboxService.watchInboxEvents().listen(
       _handleInboxEvent,
@@ -1171,6 +1377,7 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
   }
 
   void refreshNow() {
+    _inboxService.clearInboxCaches();
     unawaited(_pollConversations(force: true));
   }
 
@@ -1183,18 +1390,7 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
       return;
     }
 
-    if (event.shouldRefetch || !_isKnownInboxPatchEvent(event.type)) {
-      _scheduleConversationRefresh();
-      return;
-    }
-
-    final patch = event.conversationPatch;
-    if (patch == null) {
-      _scheduleConversationRefresh();
-      return;
-    }
-
-    unawaited(_applyConversationPatch(event, patch));
+    _scheduleConversationRefresh();
   }
 
   void _scheduleConversationRefresh() {
@@ -1209,6 +1405,7 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
     if (_isPollingConversations && !force) return;
     _isPollingConversations = true;
     try {
+      _inboxService.clearInboxCaches();
       final conversations = await _inboxService.fetchConversations(
         days: _activityDays,
         forceRefresh: true,
@@ -1222,76 +1419,8 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _applyConversationPatch(
-    InboxUpdateEvent event,
-    InboxConversationPatch patch,
-  ) async {
-    try {
-      final current = await _conversationsFuture;
-      if (!mounted) return;
-
-      final updated = _patchConversationList(current, event, patch);
-      if (updated == null) {
-        _scheduleConversationRefresh();
-        return;
-      }
-
-      setState(() => _conversationsFuture = Future.value(updated));
-    } catch (_) {
-      _scheduleConversationRefresh();
-    }
-  }
-
-  List<InboxConversation>? _patchConversationList(
-    List<InboxConversation> conversations,
-    InboxUpdateEvent event,
-    InboxConversationPatch patch,
-  ) {
-    final index = conversations.indexWhere(
-      (conversation) => conversation.id == patch.id,
-    );
-
-    if (index < 0 && !patch.canInsert) {
-      return null;
-    }
-
-    final updated = [...conversations];
-    final patchedConversation = index >= 0
-        ? patch.applyTo(updated[index])
-        : patch.toConversation();
-
-    if (index >= 0) {
-      updated[index] = patchedConversation;
-    } else {
-      updated.add(patchedConversation);
-    }
-
-    if (event.type == 'message_created' || patch.lastMessageAt != null) {
-      updated.sort(_compareConversationRecency);
-    }
-
-    return updated;
-  }
-
-  int _compareConversationRecency(
-    InboxConversation left,
-    InboxConversation right,
-  ) {
-    final leftTime = left.lastMessageAt?.millisecondsSinceEpoch ?? 0;
-    final rightTime = right.lastMessageAt?.millisecondsSinceEpoch ?? 0;
-    final timeDelta = rightTime.compareTo(leftTime);
-    return timeDelta == 0 ? right.id.compareTo(left.id) : timeDelta;
-  }
-
-  bool _isKnownInboxPatchEvent(String type) {
-    return type == 'conversation_created' ||
-        type == 'conversation_updated' ||
-        type == 'message_created' ||
-        type == 'message_updated' ||
-        type == 'message_deleted';
-  }
-
   Future<void> _refresh() async {
+    _inboxService.clearInboxCaches();
     final future = _inboxService.fetchConversations(
       days: _activityDays,
       forceRefresh: true,
@@ -1302,6 +1431,7 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
 
   void _setActivityDays(int? days) {
     if (_activityDays == days) return;
+    _inboxService.clearInboxCaches();
     final future = _inboxService.fetchConversations(
       days: days,
       forceRefresh: true,
@@ -1318,7 +1448,8 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
     return conversations
         .where((conversation) => conversation.matchesFilter(_inboxFilter))
         .where((conversation) => conversation.matchesSearch(_inboxSearch))
-        .toList();
+        .toList()
+      ..sort(InboxConversation.compareByLatestMessageDesc);
   }
 
   @override
@@ -1492,6 +1623,7 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
       ),
     );
     if (!mounted) return;
+    _inboxService.clearInboxCaches();
     final future = _inboxService.fetchConversations(
       days: _activityDays,
       forceRefresh: true,
@@ -1509,9 +1641,23 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
         '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
 
     if (date == today) return time;
-    if (date == today.subtract(const Duration(days: 1))) return 'Yesterday';
 
-    return '${value.day}/${value.month}';
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final month = months[value.month - 1];
+    return '${value.day} $month ${value.year}';
   }
 }
 
@@ -1532,7 +1678,10 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
   final InboxService _inboxService = InboxService(
     authService: AuthService.instance,
   );
-  static const int _activityDays = 30;
+  final QuickRepliesService _quickRepliesService = QuickRepliesService(
+    authService: AuthService.instance,
+  );
+  static const int? _activityDays = null;
   static const int _initialMessagePageSize = 15;
   static const int _olderMessagePageSize = 5;
   final TextEditingController _composerController = TextEditingController();
@@ -1547,6 +1696,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
   bool _isAiThinking = false;
   bool _isCheckingAiAvailability = true;
   bool _isAiAssistEnabled = false;
+  List<QuickReply> _quickReplies = const [];
   String _composerText = '';
   String? _sendError;
   String? _aiError;
@@ -1555,9 +1705,11 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
   @override
   void initState() {
     super.initState();
+    _inboxService.clearInboxCaches();
     _messagesFuture = _loadLatestMessages();
     _composerController.addListener(_handleComposerChanged);
     _loadAiAssistAvailability();
+    _loadQuickReplies();
     _inboxEventsSubscription = _inboxService.watchInboxEvents().listen(
       _handleInboxEvent,
       onError: (_) {
@@ -1582,7 +1734,12 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
   }
 
   Future<void> _refresh() async {
-    final future = _loadLatestMessages(mergeExisting: true);
+    _inboxService.clearInboxCaches();
+    setState(() {
+      _messages = const [];
+      _messagesPagination = null;
+    });
+    final future = _loadLatestMessages();
     setState(() => _messagesFuture = future);
     await future;
   }
@@ -1592,26 +1749,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
       return;
     }
 
-    if (event.shouldRefetch || !_isKnownMessagePatchEvent(event.type)) {
-      _scheduleMessageRefresh();
-      return;
-    }
-
-    final patch = event.messagePatch;
-    if (patch == null) {
-      _scheduleMessageRefresh();
-      return;
-    }
-
-    try {
-      final messages = _mergeMessages(_messages, [patch.message]);
-      setState(() {
-        _messages = messages;
-        _messagesFuture = Future.value(messages);
-      });
-    } catch (_) {
-      _scheduleMessageRefresh();
-    }
+    _scheduleMessageRefresh();
   }
 
   void _scheduleMessageRefresh() {
@@ -1626,7 +1764,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
     if (_isPollingMessages) return;
     _isPollingMessages = true;
     try {
-      final messages = await _loadLatestMessages(mergeExisting: true);
+      final messages = await _loadLatestMessages();
       if (!mounted) return;
       setState(() => _messagesFuture = Future.value(messages));
     } catch (_) {
@@ -1709,12 +1847,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
   }
 
   List<InboxMessage> _sortMessages(List<InboxMessage> messages) {
-    return [...messages]..sort((left, right) {
-      final leftTime = left.sentAt?.millisecondsSinceEpoch ?? 0;
-      final rightTime = right.sentAt?.millisecondsSinceEpoch ?? 0;
-      final timeDelta = leftTime.compareTo(rightTime);
-      return timeDelta == 0 ? left.id.compareTo(right.id) : timeDelta;
-    });
+    return [...messages]..sort(InboxMessage.compareByTimelineDesc);
   }
 
   MessagePagination? _preserveOldestPaginationCursor(
@@ -1742,12 +1875,6 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
         DateTime.tryParse(right.sentAt)?.millisecondsSinceEpoch ?? 0;
     return leftTime < rightTime ||
         (leftTime == rightTime && left.id.compareTo(right.id) <= 0);
-  }
-
-  bool _isKnownMessagePatchEvent(String type) {
-    return type == 'message_created' ||
-        type == 'message_updated' ||
-        type == 'message_deleted';
   }
 
   @override
@@ -1816,7 +1943,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
                             );
                           }
 
-                          final message = messages[messages.length - 1 - index];
+                          final message = messages[index];
                           return _MessageBubble(message: message);
                         },
                       ),
@@ -1837,6 +1964,8 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
                 onSend: _sendMessage,
                 onAiAction: _runAiAssist,
                 onUseAiReply: _useAiReply,
+                onQuickReply: _pickQuickReply,
+                hasQuickReplies: _quickReplies.isNotEmpty,
                 hasDraft: _composerText.trim().isNotEmpty,
               ),
             ],
@@ -1937,6 +2066,79 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
         _aiError = 'AI Assist status could not be checked.';
       });
     }
+  }
+
+  Future<void> _loadQuickReplies() async {
+    try {
+      final replies = await _quickRepliesService.fetchQuickReplies();
+      if (!mounted) return;
+      setState(() => _quickReplies = replies);
+    } catch (_) {
+      // Quick replies are optional; keep normal reply composition available.
+    }
+  }
+
+  Future<void> _pickQuickReply() async {
+    var replies = _quickReplies;
+    if (replies.isEmpty) {
+      try {
+        replies = await _quickRepliesService.fetchQuickReplies(
+          forceRefresh: true,
+        );
+        if (!mounted) return;
+        setState(() => _quickReplies = replies);
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Quick replies are unavailable.')),
+        );
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    final selected = await showModalBottomSheet<QuickReply>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: ListView.separated(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            itemCount: replies.length,
+            separatorBuilder: (_, _) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final reply = replies[index];
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.quickreply_outlined),
+                title: Text(reply.title),
+                subtitle: Text(
+                  reply.body,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () => Navigator.of(context).pop(reply),
+              );
+            },
+          ),
+        );
+      },
+    );
+
+    if (selected == null) return;
+    _composerController.text = selected.body;
+    _composerController.selection = TextSelection.fromPosition(
+      TextPosition(offset: _composerController.text.length),
+    );
+    unawaited(
+      _quickRepliesService
+          .recordUsage(
+            templateId: selected.id,
+            conversationId: widget.conversation.id,
+          )
+          .catchError((_) {}),
+    );
   }
 
   Future<void> _runAiAssist(String action) async {
@@ -3888,36 +4090,46 @@ class _MessageBubble extends StatelessWidget {
                 ),
               ),
             const SizedBox(height: 6),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _formatMessageTime(message.sentAt),
-                  style: TextStyle(
-                    color: isOutgoing
-                        ? Colors.white.withValues(alpha: 0.72)
-                        : AppColors.textTertiary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (isOutgoing) ...[
-                  const SizedBox(width: 8),
-                  _MessageStatusLabel(message: message),
+            if (_messageTimestamp != null ||
+                (isOutgoing && _MessageStatusLabel.hasVisibleStatus(message)))
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_messageTimestamp != null)
+                    Flexible(
+                      child: Text(
+                        _formatMessageTime(_messageTimestamp!),
+                        style: TextStyle(
+                          color:
+                              isOutgoing ? Colors.white : AppColors.textPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  if (isOutgoing && _MessageStatusLabel.hasVisibleStatus(message)) ...[
+                    if (_messageTimestamp != null) const SizedBox(width: 8),
+                    _MessageStatusLabel(message: message),
+                  ],
                 ],
-              ],
-            ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  String _formatMessageTime(DateTime? value) {
-    if (value == null) return '';
+  DateTime? get _messageTimestamp {
+    return message.timelineAt;
+  }
+
+  String _formatMessageTime(DateTime value) {
+    final day = value.day.toString().padLeft(2, '0');
+    final month = value.month.toString().padLeft(2, '0');
+    final year = value.year.toString();
     final hour = value.hour.toString().padLeft(2, '0');
     final minute = value.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
+    return '$day/$month/$year $hour:$minute';
   }
 }
 
@@ -4093,9 +4305,16 @@ class _MessageStatusLabel extends StatelessWidget {
 
   final InboxMessage message;
 
+  static bool hasVisibleStatus(InboxMessage message) {
+    return _statusText(message) != null;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final label = _formatAckStatus(message) ?? 'Sending';
+    final label = _statusText(message);
+    if (label == null) {
+      return const SizedBox.shrink();
+    }
     final color = _ackStatusColor(message.ackStatus);
 
     return Text(
@@ -4104,13 +4323,13 @@ class _MessageStatusLabel extends StatelessWidget {
     );
   }
 
-  String? _formatAckStatus(InboxMessage message) {
+  static String? _statusText(InboxMessage message) {
     switch (message.ackStatus) {
       case 'queued':
       case 'pending':
-        return _hasConnectorMessageId(message) ? 'Sent' : 'Sending';
+        return _hasConnectorMessageId(message) ? null : 'Sending';
       case 'server_ack':
-        return 'Sent';
+        return null;
       case 'device_delivered':
         return 'Delivered';
       case 'read':
@@ -4120,11 +4339,11 @@ class _MessageStatusLabel extends StatelessWidget {
       case 'failed':
         return 'Failed';
       default:
-        return _hasConnectorMessageId(message) ? 'Sent' : null;
+        return null;
     }
   }
 
-  bool _hasConnectorMessageId(InboxMessage message) {
+  static bool _hasConnectorMessageId(InboxMessage message) {
     final externalId = message.externalMessageId;
     if (externalId == null || externalId.isEmpty) return false;
     return !externalId.startsWith('queued:');
@@ -4158,6 +4377,8 @@ class _MessageComposer extends StatelessWidget {
     required this.onSend,
     required this.onAiAction,
     required this.onUseAiReply,
+    required this.onQuickReply,
+    required this.hasQuickReplies,
     required this.hasDraft,
     this.aiResult,
     this.errorMessage,
@@ -4173,6 +4394,8 @@ class _MessageComposer extends StatelessWidget {
   final VoidCallback onSend;
   final ValueChanged<String> onAiAction;
   final ValueChanged<String> onUseAiReply;
+  final VoidCallback onQuickReply;
+  final bool hasQuickReplies;
   final bool hasDraft;
   final AiInboxAssistResult? aiResult;
   final String? errorMessage;
@@ -4226,6 +4449,20 @@ class _MessageComposer extends StatelessWidget {
           ],
           Row(
             children: [
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: IconButton(
+                  tooltip: 'Quick replies',
+                  onPressed: canType ? onQuickReply : null,
+                  icon: Icon(
+                    hasQuickReplies
+                        ? Icons.quickreply
+                        : Icons.quickreply_outlined,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: TextField(
                   controller: controller,
@@ -4617,6 +4854,70 @@ class _ContactDetailHeader extends StatelessWidget {
             icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
             tooltip: 'Edit Contact',
             onPressed: onEdit,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SimpleDetailHeader extends StatelessWidget {
+  const _SimpleDetailHeader({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 8, 16, 16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border(
+          bottom: BorderSide(color: AppColors.border.withValues(alpha: 0.6)),
+        ),
+        boxShadow: RezekiTheme.softShadow,
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back, color: AppColors.textSecondary),
+            tooltip: 'Back',
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          CircleAvatar(
+            backgroundColor: AppColors.secondary,
+            foregroundColor: AppColors.primary,
+            child: Icon(icon),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ],
       ),

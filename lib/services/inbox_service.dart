@@ -97,8 +97,7 @@ class InboxConversation {
       lastMessagePreview: lastMessagePreview ?? this.lastMessagePreview,
       unreadCount: unreadCount ?? this.unreadCount,
       whatsappAccountId: whatsappAccountId ?? this.whatsappAccountId,
-      whatsappAccountLabel:
-          whatsappAccountLabel ?? this.whatsappAccountLabel,
+      whatsappAccountLabel: whatsappAccountLabel ?? this.whatsappAccountLabel,
       lastMessageAt: lastMessageAt ?? this.lastMessageAt,
       channel: channel ?? this.channel,
       avatarUrl: avatarUrl ?? this.avatarUrl,
@@ -170,6 +169,16 @@ class InboxConversation {
     }
   }
 
+  static int compareByLatestMessageDesc(
+    InboxConversation left,
+    InboxConversation right,
+  ) {
+    final leftTime = left.lastMessageAt?.millisecondsSinceEpoch ?? 0;
+    final rightTime = right.lastMessageAt?.millisecondsSinceEpoch ?? 0;
+    final timeDelta = rightTime.compareTo(leftTime);
+    return timeDelta == 0 ? right.id.compareTo(left.id) : timeDelta;
+  }
+
   static String _readString(
     Map<String, dynamic> json,
     String primaryKey,
@@ -221,6 +230,8 @@ class InboxMessage {
     required this.messageType,
     required this.contentText,
     required this.sentAt,
+    this.createdAt,
+    this.sortAt,
     this.contentJson,
     this.externalMessageId,
     this.ackStatus,
@@ -235,6 +246,8 @@ class InboxMessage {
       contentText: _readContent(json),
       contentJson: json['content_json'] ?? json['contentJson'],
       sentAt: _readDate(json['sent_at'] ?? json['sentAt']),
+      createdAt: _readDate(json['created_at'] ?? json['createdAt']),
+      sortAt: _readDate(json['sort_at'] ?? json['sortAt']),
       externalMessageId: _readNullableString(
         json['external_message_id'] ?? json['externalMessageId'],
       ),
@@ -248,11 +261,26 @@ class InboxMessage {
   final String contentText;
   final Object? contentJson;
   final DateTime? sentAt;
+  final DateTime? createdAt;
+  final DateTime? sortAt;
   final String? externalMessageId;
   final String? ackStatus;
 
   bool get isOutgoing => direction == 'outgoing';
   bool get isSystem => direction == 'system';
+  DateTime? get timelineAt => sortAt ?? sentAt ?? createdAt;
+
+  static int compareByTimelineAsc(InboxMessage left, InboxMessage right) {
+    final leftTime = left.timelineAt?.millisecondsSinceEpoch ?? 0;
+    final rightTime = right.timelineAt?.millisecondsSinceEpoch ?? 0;
+    final timeDelta = leftTime.compareTo(rightTime);
+    return timeDelta == 0 ? left.id.compareTo(right.id) : timeDelta;
+  }
+
+  static int compareByTimelineDesc(InboxMessage left, InboxMessage right) {
+    return compareByTimelineAsc(right, left);
+  }
+
   MessageAttachmentPresentation get presentation {
     return MessageAttachmentPresentation.fromMessage(this);
   }
@@ -441,10 +469,14 @@ class InboxConversationPatch {
       whatsappAccountLabel: _readNullableString(
         json['whatsappAccountLabel'] ?? json['whatsapp_account_label'],
       ),
-      lastMessageAt: _readDate(json['lastMessageAt'] ?? json['last_message_at']),
+      lastMessageAt: _readDate(
+        json['lastMessageAt'] ?? json['last_message_at'],
+      ),
       channel: _readNullableString(json['channel']),
       avatarUrl: _readNullableString(json['avatarUrl'] ?? json['avatar_url']),
-      leadStatus: _readNullableString(json['leadStatus'] ?? json['lead_status']),
+      leadStatus: _readNullableString(
+        json['leadStatus'] ?? json['lead_status'],
+      ),
       tag: _readNullableString(json['tag']),
     );
   }
@@ -1153,7 +1185,7 @@ class InboxService {
     }
 
     final url = AppConfig.apiUri(
-      '/mobile/v1/inbox',
+      '/inbox/threads',
     ).replace(queryParameters: query.isEmpty ? null : query);
     final response = await authService.authenticatedGet(url);
     final decoded = _decodeObject(response.body);
@@ -1171,12 +1203,22 @@ class InboxService {
         .whereType<Map<String, dynamic>>()
         .map(InboxConversation.fromJson)
         .where((conversation) => conversation.id.isNotEmpty)
-        .toList();
+        .toList()
+      ..sort(InboxConversation.compareByLatestMessageDesc);
     _conversationCache[cacheKey] = ServiceCacheEntry(
       value: conversations,
       savedAt: DateTime.now(),
     );
     return conversations;
+  }
+
+  void clearConversationCache() {
+    _conversationCache.clear();
+  }
+
+  void clearInboxCaches() {
+    _conversationCache.clear();
+    _whatsappSourceCache.clear();
   }
 
   Future<InboxConversation?> fetchConversationForContact(
@@ -1304,7 +1346,7 @@ class InboxService {
     }
 
     final url = AppConfig.apiUri(
-      '/mobile/v1/inbox/$conversationId/messages',
+      '/inbox/threads/$conversationId/messages',
     ).replace(queryParameters: query.isEmpty ? null : query);
     final response = await authService.authenticatedGet(url);
     final decoded = _decodeObject(response.body);
@@ -1509,6 +1551,7 @@ class InboxService {
       return null;
     }
 
+    clearConversationCache();
     return InboxUpdateEvent.fromJson(decoded);
   }
 
