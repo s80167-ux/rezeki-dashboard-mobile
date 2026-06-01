@@ -77,6 +77,36 @@ class InboxConversation {
   final String? leadStatus;
   final String? tag;
 
+  InboxConversation copyWith({
+    String? contactName,
+    String? lastMessagePreview,
+    int? unreadCount,
+    String? contactId,
+    String? whatsappAccountId,
+    String? whatsappAccountLabel,
+    DateTime? lastMessageAt,
+    String? channel,
+    String? avatarUrl,
+    String? leadStatus,
+    String? tag,
+  }) {
+    return InboxConversation(
+      id: id,
+      contactId: contactId ?? this.contactId,
+      contactName: contactName ?? this.contactName,
+      lastMessagePreview: lastMessagePreview ?? this.lastMessagePreview,
+      unreadCount: unreadCount ?? this.unreadCount,
+      whatsappAccountId: whatsappAccountId ?? this.whatsappAccountId,
+      whatsappAccountLabel:
+          whatsappAccountLabel ?? this.whatsappAccountLabel,
+      lastMessageAt: lastMessageAt ?? this.lastMessageAt,
+      channel: channel ?? this.channel,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      leadStatus: leadStatus ?? this.leadStatus,
+      tag: tag ?? this.tag,
+    );
+  }
+
   String get sourceLabel {
     if (whatsappAccountLabel != null && whatsappAccountLabel!.isNotEmpty) {
       return whatsappAccountLabel!;
@@ -374,6 +404,129 @@ class InboxMessagePage {
 
   final List<InboxMessage> messages;
   final MessagePagination pagination;
+}
+
+class InboxConversationPatch {
+  const InboxConversationPatch({
+    required this.id,
+    this.contactId,
+    this.contactName,
+    this.lastMessagePreview,
+    this.unreadCount,
+    this.whatsappAccountId,
+    this.whatsappAccountLabel,
+    this.lastMessageAt,
+    this.channel,
+    this.avatarUrl,
+    this.leadStatus,
+    this.tag,
+  });
+
+  factory InboxConversationPatch.fromJson(Map<String, dynamic> json) {
+    return InboxConversationPatch(
+      id: (json['id'] ?? '').toString(),
+      contactId: _readNullableString(json['contactId'] ?? json['contact_id']),
+      contactName: _readNullableString(
+        json['contactName'] ?? json['contact_name'],
+      ),
+      lastMessagePreview: _readNullableString(
+        json['lastMessagePreview'] ?? json['last_message_preview'],
+      ),
+      unreadCount: _readNullableInt(
+        json['unreadCount'] ?? json['unread_count'],
+      ),
+      whatsappAccountId: _readNullableString(
+        json['whatsappAccountId'] ?? json['whatsapp_account_id'],
+      ),
+      whatsappAccountLabel: _readNullableString(
+        json['whatsappAccountLabel'] ?? json['whatsapp_account_label'],
+      ),
+      lastMessageAt: _readDate(json['lastMessageAt'] ?? json['last_message_at']),
+      channel: _readNullableString(json['channel']),
+      avatarUrl: _readNullableString(json['avatarUrl'] ?? json['avatar_url']),
+      leadStatus: _readNullableString(json['leadStatus'] ?? json['lead_status']),
+      tag: _readNullableString(json['tag']),
+    );
+  }
+
+  final String id;
+  final String? contactId;
+  final String? contactName;
+  final String? lastMessagePreview;
+  final int? unreadCount;
+  final String? whatsappAccountId;
+  final String? whatsappAccountLabel;
+  final DateTime? lastMessageAt;
+  final String? channel;
+  final String? avatarUrl;
+  final String? leadStatus;
+  final String? tag;
+
+  bool get canInsert =>
+      id.isNotEmpty &&
+      contactName != null &&
+      lastMessagePreview != null &&
+      unreadCount != null;
+
+  InboxConversation toConversation() {
+    return InboxConversation(
+      id: id,
+      contactId: contactId,
+      contactName: contactName ?? 'Unknown',
+      lastMessagePreview: lastMessagePreview ?? 'No messages yet',
+      unreadCount: unreadCount ?? 0,
+      whatsappAccountId: whatsappAccountId,
+      whatsappAccountLabel: whatsappAccountLabel,
+      lastMessageAt: lastMessageAt,
+      channel: channel,
+      avatarUrl: avatarUrl,
+      leadStatus: leadStatus,
+      tag: tag,
+    );
+  }
+
+  InboxConversation applyTo(InboxConversation conversation) {
+    return conversation.copyWith(
+      contactId: contactId,
+      contactName: contactName,
+      lastMessagePreview: lastMessagePreview,
+      unreadCount: unreadCount,
+      whatsappAccountId: whatsappAccountId,
+      whatsappAccountLabel: whatsappAccountLabel,
+      lastMessageAt: lastMessageAt,
+      channel: channel,
+      avatarUrl: avatarUrl,
+      leadStatus: leadStatus,
+      tag: tag,
+    );
+  }
+
+  static String? _readNullableString(Object? value) {
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+    return null;
+  }
+
+  static int? _readNullableInt(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  static DateTime? _readDate(Object? value) {
+    if (value is! String || value.isEmpty) return null;
+    return DateTime.tryParse(value)?.toLocal();
+  }
+}
+
+class InboxMessagePatch {
+  const InboxMessagePatch({required this.message});
+
+  factory InboxMessagePatch.fromJson(Map<String, dynamic> json) {
+    return InboxMessagePatch(message: InboxMessage.fromJson(json));
+  }
+
+  final InboxMessage message;
 }
 
 class MessageAttachmentPresentation {
@@ -863,6 +1016,7 @@ class InboxService {
 
     Future<void> connect() async {
       var reconnectDelay = const Duration(seconds: 2);
+      DateTime? disconnectedAt;
 
       while (!controller.isClosed) {
         final session = authService.session.value;
@@ -903,6 +1057,23 @@ class InboxService {
           }
 
           reconnectDelay = const Duration(seconds: 2);
+          final lastDisconnect = disconnectedAt;
+          disconnectedAt = null;
+          if (lastDisconnect != null &&
+              DateTime.now()
+                      .difference(lastDisconnect)
+                      .compareTo(const Duration(seconds: 30)) >
+                  0) {
+            controller.add(
+              InboxUpdateEvent(
+                type: 'refetch_required',
+                conversationId: '',
+                organizationId: session.user.organizationId ?? '',
+                timestamp: DateTime.now(),
+                shouldRefetch: true,
+              ),
+            );
+          }
           var eventName = 'message';
           final dataLines = <String>[];
 
@@ -944,6 +1115,7 @@ class InboxService {
         } finally {
           client?.close();
           client = null;
+          disconnectedAt ??= DateTime.now();
         }
 
         await _waitBeforeReconnect(controller, reconnectDelay);
@@ -1360,9 +1532,14 @@ class InboxUpdateEvent {
     required this.conversationId,
     required this.organizationId,
     required this.timestamp,
+    required this.shouldRefetch,
+    this.conversationPatch,
+    this.messagePatch,
   });
 
   factory InboxUpdateEvent.fromJson(Map<String, dynamic> json) {
+    final conversationPatch = json['conversationPatch'];
+    final messagePatch = json['messagePatch'];
     return InboxUpdateEvent(
       type: (json['type'] ?? '').toString(),
       conversationId: (json['conversationId'] ?? '').toString(),
@@ -1370,6 +1547,15 @@ class InboxUpdateEvent {
       timestamp:
           DateTime.tryParse((json['timestamp'] ?? '').toString()) ??
           DateTime.now(),
+      shouldRefetch: json['shouldRefetch'] == true,
+      conversationPatch: conversationPatch is Map
+          ? InboxConversationPatch.fromJson(
+              Map<String, dynamic>.from(conversationPatch),
+            )
+          : null,
+      messagePatch: messagePatch is Map
+          ? InboxMessagePatch.fromJson(Map<String, dynamic>.from(messagePatch))
+          : null,
     );
   }
 
@@ -1377,6 +1563,9 @@ class InboxUpdateEvent {
   final String conversationId;
   final String organizationId;
   final DateTime timestamp;
+  final bool shouldRefetch;
+  final InboxConversationPatch? conversationPatch;
+  final InboxMessagePatch? messagePatch;
 }
 
 class InboxServiceException implements Exception {

@@ -1183,7 +1183,18 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
       return;
     }
 
-    _scheduleConversationRefresh();
+    if (event.shouldRefetch || !_isKnownInboxPatchEvent(event.type)) {
+      _scheduleConversationRefresh();
+      return;
+    }
+
+    final patch = event.conversationPatch;
+    if (patch == null) {
+      _scheduleConversationRefresh();
+      return;
+    }
+
+    unawaited(_applyConversationPatch(event, patch));
   }
 
   void _scheduleConversationRefresh() {
@@ -1209,6 +1220,75 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
     } finally {
       _isPollingConversations = false;
     }
+  }
+
+  Future<void> _applyConversationPatch(
+    InboxUpdateEvent event,
+    InboxConversationPatch patch,
+  ) async {
+    try {
+      final current = await _conversationsFuture;
+      if (!mounted) return;
+
+      final updated = _patchConversationList(current, event, patch);
+      if (updated == null) {
+        _scheduleConversationRefresh();
+        return;
+      }
+
+      setState(() => _conversationsFuture = Future.value(updated));
+    } catch (_) {
+      _scheduleConversationRefresh();
+    }
+  }
+
+  List<InboxConversation>? _patchConversationList(
+    List<InboxConversation> conversations,
+    InboxUpdateEvent event,
+    InboxConversationPatch patch,
+  ) {
+    final index = conversations.indexWhere(
+      (conversation) => conversation.id == patch.id,
+    );
+
+    if (index < 0 && !patch.canInsert) {
+      return null;
+    }
+
+    final updated = [...conversations];
+    final patchedConversation = index >= 0
+        ? patch.applyTo(updated[index])
+        : patch.toConversation();
+
+    if (index >= 0) {
+      updated[index] = patchedConversation;
+    } else {
+      updated.add(patchedConversation);
+    }
+
+    if (event.type == 'message_created' || patch.lastMessageAt != null) {
+      updated.sort(_compareConversationRecency);
+    }
+
+    return updated;
+  }
+
+  int _compareConversationRecency(
+    InboxConversation left,
+    InboxConversation right,
+  ) {
+    final leftTime = left.lastMessageAt?.millisecondsSinceEpoch ?? 0;
+    final rightTime = right.lastMessageAt?.millisecondsSinceEpoch ?? 0;
+    final timeDelta = rightTime.compareTo(leftTime);
+    return timeDelta == 0 ? right.id.compareTo(left.id) : timeDelta;
+  }
+
+  bool _isKnownInboxPatchEvent(String type) {
+    return type == 'conversation_created' ||
+        type == 'conversation_updated' ||
+        type == 'message_created' ||
+        type == 'message_updated' ||
+        type == 'message_deleted';
   }
 
   Future<void> _refresh() async {
@@ -1512,7 +1592,26 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
       return;
     }
 
-    _scheduleMessageRefresh();
+    if (event.shouldRefetch || !_isKnownMessagePatchEvent(event.type)) {
+      _scheduleMessageRefresh();
+      return;
+    }
+
+    final patch = event.messagePatch;
+    if (patch == null) {
+      _scheduleMessageRefresh();
+      return;
+    }
+
+    try {
+      final messages = _mergeMessages(_messages, [patch.message]);
+      setState(() {
+        _messages = messages;
+        _messagesFuture = Future.value(messages);
+      });
+    } catch (_) {
+      _scheduleMessageRefresh();
+    }
   }
 
   void _scheduleMessageRefresh() {
@@ -1643,6 +1742,12 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
         DateTime.tryParse(right.sentAt)?.millisecondsSinceEpoch ?? 0;
     return leftTime < rightTime ||
         (leftTime == rightTime && left.id.compareTo(right.id) <= 0);
+  }
+
+  bool _isKnownMessagePatchEvent(String type) {
+    return type == 'message_created' ||
+        type == 'message_updated' ||
+        type == 'message_deleted';
   }
 
   @override
