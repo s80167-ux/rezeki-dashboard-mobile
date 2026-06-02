@@ -10,6 +10,8 @@ void main() {
   testWidgets('App renders login page', (WidgetTester tester) async {
     // Build our app and trigger a frame.
     await tester.pumpWidget(const RezekiDashboardApp());
+    // Allow flutter_animate timers to settle.
+    await tester.pumpAndSettle();
 
     // Verify that login page elements are present.
     expect(find.text('Rezeki Dashboard'), findsOneWidget);

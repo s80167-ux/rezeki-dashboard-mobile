@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'config/app_config.dart';
@@ -13,6 +14,9 @@ import 'services/inbox_service.dart';
 import 'services/leads_service.dart';
 import 'services/quick_replies_service.dart';
 import 'theme/rezeki_theme.dart';
+import 'widgets/count_up_text.dart';
+import 'widgets/gradient_button.dart';
+import 'widgets/page_transitions.dart';
 
 // =============================================================================
 // Rezeki Dashboard - Kempen Digital Untuk PMKS
@@ -197,7 +201,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        gradient: RezekiTheme.appBackgroundGradient,
+        gradient: RezekiTheme.loginBackgroundGradient,
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -210,163 +214,210 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const SizedBox(height: 48),
+                    const SizedBox(height: 56),
                     // Logo
                     Container(
-                      width: 220,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(RezekiRadii.card),
-                        border: Border.all(
-                          color: AppColors.border.withValues(alpha: 0.6),
-                        ),
-                        boxShadow: RezekiTheme.softShadow,
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(RezekiRadii.card),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Image.asset(
-                            'assets/logo.png',
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Center(
-                                child: Icon(
-                                  Icons.broken_image_outlined,
-                                  color: AppColors.textTertiary,
-                                  size: 48,
-                                ),
-                              );
-                            },
+                          width: 240,
+                          height: 140,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(
+                              RezekiRadii.card,
+                            ),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.2),
+                            ),
+                            boxShadow: RezekiTheme.glowShadow,
                           ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(
+                              RezekiRadii.card,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Image.asset(
+                                'assets/logo.png',
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Center(
+                                    child: Icon(
+                                      Icons.broken_image_outlined,
+                                      color: Colors.white70,
+                                      size: 48,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        )
+                        .animate()
+                        .fadeIn(duration: 600.ms)
+                        .slideY(begin: -0.2, end: 0, duration: 600.ms),
+                    const SizedBox(height: 36),
                     // Title
                     Text(
-                      'Rezeki Dashboard',
-                      style: Theme.of(context).textTheme.headlineLarge
-                          ?.copyWith(color: AppColors.primaryDark),
-                      textAlign: TextAlign.center,
-                    ),
+                          'Rezeki Dashboard',
+                          style: Theme.of(context).textTheme.headlineLarge
+                              ?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        )
+                        .animate()
+                        .fadeIn(delay: 200.ms, duration: 600.ms)
+                        .slideY(begin: 0.2, end: 0, duration: 600.ms),
                     const SizedBox(height: 8),
                     // Tagline
                     Text(
                       'Kempen Digital Untuk PMKS',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: Colors.white.withValues(alpha: 0.75),
                         fontWeight: FontWeight.w500,
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 40),
+                    ).animate().fadeIn(delay: 300.ms, duration: 600.ms),
+                    const SizedBox(height: 44),
                     // Email field
-                    TextField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                      enabled: !_isLoading,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        hintText: 'you@company.com',
-                        prefixIcon: Icon(Icons.email_outlined),
-                      ),
-                    ),
+                    _GlassInput(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          enabled: !_isLoading,
+                          label: 'Email',
+                          hint: 'you@company.com',
+                          prefixIcon: Icons.email_outlined,
+                        )
+                        .animate()
+                        .fadeIn(delay: 400.ms, duration: 500.ms)
+                        .slideY(begin: 0.15, end: 0, duration: 500.ms),
                     const SizedBox(height: 16),
                     // Password field
-                    TextField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      textInputAction: TextInputAction.done,
-                      enabled: !_isLoading,
-                      onSubmitted: (_) => _signInWithEmail(),
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        hintText: '********',
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
-                            color: AppColors.textTertiary,
+                    _GlassInput(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          textInputAction: TextInputAction.done,
+                          enabled: !_isLoading,
+                          onSubmitted: (_) => _signInWithEmail(),
+                          label: 'Password',
+                          hint: '********',
+                          prefixIcon: Icons.lock_outline,
+                          suffix: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              color: Colors.white70,
+                            ),
+                            onPressed: _isLoading
+                                ? null
+                                : () {
+                                    setState(
+                                      () =>
+                                          _obscurePassword = !_obscurePassword,
+                                    );
+                                  },
                           ),
-                          onPressed: _isLoading
-                              ? null
-                              : () {
-                                  setState(
-                                    () => _obscurePassword = !_obscurePassword,
-                                  );
-                                },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                        )
+                        .animate()
+                        .fadeIn(delay: 500.ms, duration: 500.ms)
+                        .slideY(begin: 0.15, end: 0, duration: 500.ms),
+                    const SizedBox(height: 10),
                     // Error message
                     if (_errorMessage != null)
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
                         child: Text(
                           _errorMessage!,
                           style: const TextStyle(
-                            color: AppColors.error,
+                            color: AppColors.errorLight,
                             fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
                           ),
                           textAlign: TextAlign.center,
                         ),
                       ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     // Login button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _signInWithEmail,
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Colors.white,
+                    GradientButton(
+                          width: double.infinity,
+                          onPressed: _isLoading ? null : _signInWithEmail,
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Login',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
-                              )
-                            : const Text('Login'),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+                        )
+                        .animate()
+                        .fadeIn(delay: 600.ms, duration: 500.ms)
+                        .slideY(begin: 0.15, end: 0, duration: 500.ms),
+                    const SizedBox(height: 20),
                     // Divider
                     Row(
                       children: [
-                        const Expanded(child: Divider(color: AppColors.border)),
+                        Expanded(
+                          child: Divider(
+                            color: Colors.white.withValues(alpha: 0.2),
+                          ),
+                        ),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
                           child: Text(
                             'or',
                             style: TextStyle(
                               fontSize: 13,
-                              color: AppColors.textTertiary,
-                              fontWeight: FontWeight.w500,
+                              color: Colors.white.withValues(alpha: 0.6),
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
-                        const Expanded(child: Divider(color: AppColors.border)),
+                        Expanded(
+                          child: Divider(
+                            color: Colors.white.withValues(alpha: 0.2),
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     // Google Sign-In button
                     SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: _isLoading ? null : _signInWithGoogle,
-                        icon: _GoogleIcon(),
-                        label: const Text('Sign in with Google'),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
+                          width: double.infinity,
+                          height: 52,
+                          child: OutlinedButton.icon(
+                            onPressed: _isLoading ? null : _signInWithGoogle,
+                            icon: _GoogleIcon(),
+                            label: const Text(
+                              'Sign in with Google',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              side: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.3),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  RezekiRadii.button,
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                        .animate()
+                        .fadeIn(delay: 700.ms, duration: 500.ms)
+                        .slideY(begin: 0.15, end: 0, duration: 500.ms),
+                    const SizedBox(height: 32),
                   ],
                 ),
               ),
@@ -399,6 +450,65 @@ class _GoogleIcon extends StatelessWidget {
             color: Color(0xFF4285F4),
             fontSize: 14,
             fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassInput extends StatelessWidget {
+  final TextEditingController controller;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final bool enabled;
+  final bool obscureText;
+  final ValueChanged<String>? onSubmitted;
+  final String label;
+  final String hint;
+  final IconData prefixIcon;
+  final Widget? suffix;
+
+  const _GlassInput({
+    required this.controller,
+    this.keyboardType,
+    this.textInputAction,
+    this.enabled = true,
+    this.obscureText = false,
+    this.onSubmitted,
+    required this.label,
+    required this.hint,
+    required this.prefixIcon,
+    this.suffix,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(RezekiRadii.input),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        textInputAction: textInputAction,
+        enabled: enabled,
+        obscureText: obscureText,
+        onSubmitted: onSubmitted,
+        style: const TextStyle(color: Colors.white),
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+          prefixIcon: Icon(prefixIcon, color: Colors.white70),
+          suffixIcon: suffix,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
           ),
         ),
       ),
@@ -442,47 +552,63 @@ class _MainShellState extends State<MainShell> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: _pages[_currentIndex],
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          border: Border(
-            top: BorderSide(color: AppColors.border.withValues(alpha: 0.6)),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 2,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Colors.transparent,
+                  AppColors.primary.withValues(alpha: 0.35),
+                  Colors.transparent,
+                ],
+              ),
+            ),
           ),
-          boxShadow: RezekiTheme.softShadow,
-        ),
-        child: NavigationBar(
-          selectedIndex: _currentIndex,
-          onDestinationSelected: (index) {
-            _selectTab(index);
-          },
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.dashboard_outlined),
-              selectedIcon: Icon(Icons.dashboard_rounded),
-              label: 'Dashboard',
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              boxShadow: RezekiTheme.softShadow,
             ),
-            NavigationDestination(
-              icon: Icon(Icons.inbox_outlined),
-              selectedIcon: Icon(Icons.inbox_rounded),
-              label: 'Inbox',
+            child: NavigationBar(
+              selectedIndex: _currentIndex,
+              onDestinationSelected: (index) {
+                _selectTab(index);
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.dashboard_outlined),
+                  selectedIcon: Icon(Icons.dashboard_rounded),
+                  label: 'Dashboard',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.inbox_outlined),
+                  selectedIcon: Icon(Icons.inbox_rounded),
+                  label: 'Inbox',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.people_outline),
+                  selectedIcon: Icon(Icons.people_rounded),
+                  label: 'Contacts',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.trending_up_outlined),
+                  selectedIcon: Icon(Icons.trending_up_rounded),
+                  label: 'Sales',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.more_horiz_outlined),
+                  selectedIcon: Icon(Icons.more_horiz_rounded),
+                  label: 'More',
+                ),
+              ],
             ),
-            NavigationDestination(
-              icon: Icon(Icons.people_outline),
-              selectedIcon: Icon(Icons.people_rounded),
-              label: 'Contacts',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.trending_up_outlined),
-              selectedIcon: Icon(Icons.trending_up_rounded),
-              label: 'Sales',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.more_horiz_outlined),
-              selectedIcon: Icon(Icons.more_horiz_rounded),
-              label: 'More',
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -646,30 +772,42 @@ class _DashboardPageState extends State<DashboardPage> {
                       childAspectRatio: 1.05,
                       children: [
                         _SummaryCard(
-                          icon: Icons.mark_chat_unread_outlined,
-                          label: 'Unread Inbox',
-                          value: unread.toString(),
-                          onTap: () => widget.onSelectTab(1),
-                        ),
+                              icon: Icons.mark_chat_unread_outlined,
+                              label: 'Unread Inbox',
+                              value: unread.toString(),
+                              onTap: () => widget.onSelectTab(1),
+                            )
+                            .animate()
+                            .fadeIn(delay: 0.ms, duration: 500.ms)
+                            .slideY(begin: 0.2, end: 0, duration: 500.ms),
                         _SummaryCard(
-                          icon: Icons.people_outline,
-                          label: 'Total Contacts',
-                          value: data.contacts.length.toString(),
-                          onTap: () => widget.onSelectTab(2),
-                        ),
+                              icon: Icons.people_outline,
+                              label: 'Total Contacts',
+                              value: data.contacts.length.toString(),
+                              onTap: () => widget.onSelectTab(2),
+                            )
+                            .animate()
+                            .fadeIn(delay: 100.ms, duration: 500.ms)
+                            .slideY(begin: 0.2, end: 0, duration: 500.ms),
                         _SummaryCard(
-                          icon: Icons.trending_up_outlined,
-                          label: 'Active Leads',
-                          value: activeLeads.toString(),
-                          onTap: () => widget.onSelectTab(3),
-                        ),
+                              icon: Icons.trending_up_outlined,
+                              label: 'Active Leads',
+                              value: activeLeads.toString(),
+                              onTap: () => widget.onSelectTab(3),
+                            )
+                            .animate()
+                            .fadeIn(delay: 200.ms, duration: 500.ms)
+                            .slideY(begin: 0.2, end: 0, duration: 500.ms),
                         _SummaryCard(
-                          icon: Icons.today_outlined,
-                          label: 'Today Follow-up',
-                          value: '0',
-                          helper: 'Coming soon',
-                          onTap: () => widget.onSelectTab(3),
-                        ),
+                              icon: Icons.today_outlined,
+                              label: 'Today Follow-up',
+                              value: '0',
+                              helper: 'Coming soon',
+                              onTap: () => widget.onSelectTab(3),
+                            )
+                            .animate()
+                            .fadeIn(delay: 300.ms, duration: 500.ms)
+                            .slideY(begin: 0.2, end: 0, duration: 500.ms),
                       ],
                     ),
                     if (data.isEmpty &&
@@ -952,7 +1090,7 @@ class _SalesPageState extends State<SalesPage> {
   Future<void> _openLead(SalesLead lead) async {
     await Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (context) => LeadDetailPage(lead: lead)));
+    ).push(FadeThroughPageRoute(page: LeadDetailPage(lead: lead)));
     if (!mounted) return;
     final future = _loadSales();
     setState(() => _salesFuture = future);
@@ -1198,7 +1336,12 @@ class MorePage extends StatelessWidget {
             children: [
               Text('More', style: Theme.of(context).textTheme.headlineMedium),
               const SizedBox(height: 16),
-              Card(
+              Container(
+                decoration: BoxDecoration(
+                  gradient: RezekiTheme.tealPurpleGradient,
+                  borderRadius: BorderRadius.all(Radius.circular(RezekiRadii.card)),
+                  boxShadow: RezekiTheme.elevatedShadow,
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(18),
                   child: Row(
@@ -1219,7 +1362,7 @@ class MorePage extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
-                                    color: AppColors.textPrimary,
+                                    color: Colors.white,
                                     fontWeight: FontWeight.w800,
                                   ),
                             ),
@@ -1231,7 +1374,7 @@ class MorePage extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  color: AppColors.textSecondary,
+                                  color: Colors.white70,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -1246,7 +1389,7 @@ class MorePage extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  color: AppColors.textTertiary,
+                                  color: Colors.white54,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -1266,28 +1409,38 @@ class MorePage extends StatelessWidget {
                     _MoreMenuTile(
                       icon: Icons.settings_outlined,
                       label: 'Settings',
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const SettingsPage(),
-                        ),
-                      ),
-                    ),
+                      onTap: () => Navigator.of(
+                        context,
+                      ).push(FadeThroughPageRoute(page: const SettingsPage())),
+                    )
+                        .animate()
+                        .fadeIn(delay: 100.ms, duration: 400.ms)
+                        .slideY(begin: 0.1, end: 0, duration: 400.ms),
                     _MoreMenuTile(
                       icon: Icons.support_agent_outlined,
                       label: 'Help / Support',
                       onTap: () => _showComingSoon(context),
-                    ),
+                    )
+                        .animate()
+                        .fadeIn(delay: 200.ms, duration: 400.ms)
+                        .slideY(begin: 0.1, end: 0, duration: 400.ms),
                     _MoreMenuTile(
                       icon: Icons.info_outline,
                       label: 'About App',
                       onTap: () => _showAboutDialog(context),
-                    ),
+                    )
+                        .animate()
+                        .fadeIn(delay: 300.ms, duration: 400.ms)
+                        .slideY(begin: 0.1, end: 0, duration: 400.ms),
                     _MoreMenuTile(
                       icon: Icons.logout_outlined,
                       label: 'Logout',
                       destructive: true,
                       onTap: () => _logout(context),
-                    ),
+                    )
+                        .animate()
+                        .fadeIn(delay: 400.ms, duration: 400.ms)
+                        .slideY(begin: 0.1, end: 0, duration: 400.ms),
                   ],
                 ),
               ),
@@ -1652,9 +1805,7 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
 
   Future<void> _openConversation(InboxConversation conversation) async {
     await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => InboxThreadPage(conversation: conversation),
-      ),
+      FadeThroughPageRoute(page: InboxThreadPage(conversation: conversation)),
     );
     if (!mounted) return;
     _inboxService.clearInboxCaches();
@@ -2832,11 +2983,9 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   Future<void> _openContact(CrmContact contact) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ContactDetailPage(contact: contact),
-      ),
-    );
+    await Navigator.of(
+      context,
+    ).push(FadeThroughPageRoute(page: ContactDetailPage(contact: contact)));
     if (!mounted) return;
     final future = _contactsService.fetchContacts(
       days: _activityDays,
@@ -2846,9 +2995,9 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   Future<void> _openCreateContact() async {
-    final created = await Navigator.of(context).push<CrmContact>(
-      MaterialPageRoute(builder: (context) => const ContactCreatePage()),
-    );
+    final created = await Navigator.of(
+      context,
+    ).push<CrmContact>(FadeThroughPageRoute(page: const ContactCreatePage()));
 
     if (created == null || !mounted) return;
     final future = _contactsService.fetchContacts(
@@ -3028,9 +3177,7 @@ class _ContactDetailPageState extends State<ContactDetailPage> {
 
   Future<void> _openEdit(CrmContact contact) async {
     final updated = await Navigator.of(context).push<CrmContact>(
-      MaterialPageRoute(
-        builder: (context) => ContactEditPage(contact: contact),
-      ),
+      FadeThroughPageRoute(page: ContactEditPage(contact: contact)),
     );
 
     if (updated == null || !mounted) return;
@@ -3552,55 +3699,81 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final gradient = switch (label) {
+      'Unread Inbox' => RezekiTheme.primaryGradient,
+      'Total Contacts' => RezekiTheme.tealPurpleGradient,
+      'Active Leads' => RezekiTheme.amberRoseGradient,
+      _ => const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+      ),
+    };
+    final iconFg = Colors.white;
+    final textPrimary = Colors.white;
+    final textSecondary = Colors.white70;
+
     return Card(
-      child: InkWell(
+      color: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(RezekiRadii.card),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  gradient: RezekiTheme.primaryGradient,
-                  borderRadius: BorderRadius.circular(RezekiRadii.sm),
+        side: BorderSide.none,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(RezekiRadii.card),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(RezekiRadii.card),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(RezekiRadii.sm),
+                  ),
+                  child: Icon(icon, color: iconFg, size: 20),
                 ),
-                child: Icon(icon, color: Colors.white, size: 20),
-              ),
-              const Spacer(),
-              Text(
-                value,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              if (helper != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  helper!,
-                  style: const TextStyle(
-                    color: AppColors.textTertiary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                const Spacer(),
+                CountUpText(
+                  end: int.tryParse(value) ?? 0,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: textPrimary,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: textPrimary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (helper != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    helper!,
+                    style: TextStyle(
+                      color: textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -3623,35 +3796,38 @@ class _PipelineSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const _SalesSectionHeader(
-              title: 'Pipeline Summary',
-              subtitle: 'Lead status overview',
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _MiniMetric(label: 'Total', value: total),
-                ),
-                Expanded(
-                  child: _MiniMetric(label: 'New', value: newLead),
-                ),
-                Expanded(
-                  child: _MiniMetric(label: 'Interested', value: interested),
-                ),
-                Expanded(
-                  child: _MiniMetric(label: 'Processing', value: processing),
-                ),
-              ],
-            ),
-          ],
-        ),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: RezekiTheme.surfaceGlassGradient,
+        borderRadius: BorderRadius.circular(RezekiRadii.card),
+        boxShadow: RezekiTheme.elevatedShadow,
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SalesSectionHeader(
+            title: 'Pipeline Summary',
+            subtitle: 'Lead status overview',
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _MiniMetric(label: 'Total', value: total),
+              ),
+              Expanded(
+                child: _MiniMetric(label: 'New', value: newLead),
+              ),
+              Expanded(
+                child: _MiniMetric(label: 'Interested', value: interested),
+              ),
+              Expanded(
+                child: _MiniMetric(label: 'Processing', value: processing),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -3668,8 +3844,8 @@ class _MiniMetric extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          value.toString(),
+        CountUpText(
+          end: value,
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             color: AppColors.primary,
             fontWeight: FontWeight.w800,
@@ -3738,65 +3914,86 @@ class _LeadCard extends StatelessWidget {
     final displayName = contact?.name ?? lead.name;
     final phone =
         _usablePhone(contact?.phone) ?? _usablePhone(lead.phone) ?? 'No phone';
+    final accentColor = _statusColors(status).fg;
 
-    return Card(
-      child: InkWell(
+    return Container(
+      decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(RezekiRadii.card),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
+        boxShadow: RezekiTheme.elevatedShadow,
+      ),
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(RezekiRadii.card),
+          onTap: onTap,
+          child: Stack(
             children: [
-              _Avatar(
-                initial: displayName.isEmpty ? '?' : displayName[0],
-                imageUrl: contact?.avatarUrl,
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: Container(
+                  width: 4,
+                  color: accentColor,
+                ),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+                child: Row(
                   children: [
-                    Text(
-                      displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w700,
+                    _Avatar(
+                      initial: displayName.isEmpty ? '?' : displayName[0],
+                      imageUrl: contact?.avatarUrl,
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            phone,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              _StatusChip(
+                                label: status,
+                                colors: _statusColors(status),
+                              ),
+                              _TagChip(label: tag),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      phone,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        _StatusChip(
-                          label: status,
-                          colors: _statusColors(status),
-                        ),
-                        _TagChip(label: tag),
-                      ],
-                    ),
+                    const Icon(Icons.chevron_right, color: AppColors.textTertiary),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.textTertiary),
             ],
           ),
         ),
       ),
-    );
+    ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.05, end: 0, duration: 400.ms);
   }
 
   String? _usablePhone(String? value) {
@@ -4910,7 +5107,17 @@ class _MessageBubble extends StatelessWidget {
 
     return Align(
       alignment: isSystem ? Alignment.center : alignment,
-      child: GestureDetector(onLongPress: onLongPress, child: bubble),
+      child: GestureDetector(
+        onLongPress: onLongPress,
+        child: bubble
+            .animate()
+            .fadeIn(duration: 300.ms)
+            .slideX(
+              begin: isSystem ? 0 : (isOutgoing ? 0.05 : -0.05),
+              end: 0,
+              duration: 300.ms,
+            ),
+      ),
     );
   }
 
@@ -5961,9 +6168,7 @@ class _ContactActionBarState extends State<_ContactActionBar> {
 
   Future<void> _openConversation(InboxConversation conversation) async {
     await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => InboxThreadPage(conversation: conversation),
-      ),
+      FadeThroughPageRoute(page: InboxThreadPage(conversation: conversation)),
     );
   }
 
@@ -6300,130 +6505,156 @@ class _MessageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
+    final accentColor = isUnread
+        ? AppColors.primary
+        : hasSales
+            ? _statusColors(salesStatus ?? salesLabel ?? 'Sales').fg
+            : AppColors.border.withValues(alpha: 0.5);
+
+    return Container(
+      decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(RezekiRadii.card),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
+        boxShadow: RezekiTheme.elevatedShadow,
+      ),
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(RezekiRadii.card),
+          onTap: onTap,
+          child: Stack(
             children: [
-              _Avatar(initial: name[0], imageUrl: avatarUrl),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: Container(
+                  width: 4,
+                  color: accentColor,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            name,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: isUnread
-                                  ? FontWeight.w700
-                                  : FontWeight.w600,
-                              color: AppColors.textPrimary,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Text(
-                          time,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: isUnread
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                            color: isUnread
-                                ? AppColors.primary
-                                : AppColors.textTertiary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    if (sourceLabel != null && sourceLabel!.isNotEmpty) ...[
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        crossAxisAlignment: WrapCrossAlignment.center,
+                    _Avatar(initial: name[0], imageUrl: avatarUrl, size: 56),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
-                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
-                                Icons.account_tree_outlined,
-                                size: 13,
-                                color: AppColors.textTertiary,
+                              Expanded(
+                                child: Text(
+                                  name,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: isUnread
+                                        ? FontWeight.w700
+                                        : FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                              const SizedBox(width: 4),
                               Text(
-                                sourceLabel!,
-                                style: const TextStyle(
+                                time,
+                                style: TextStyle(
                                   fontSize: 12,
-                                  color: AppColors.textTertiary,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: isUnread
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                  color: isUnread
+                                      ? AppColors.primary
+                                      : AppColors.textTertiary,
                                 ),
                               ),
                             ],
                           ),
-                          if (hasSales)
-                            _SalesIndicatorChip(
-                              label:
-                                  salesLabel ??
-                                  _normalizeStatus(salesStatus ?? 'Sales'),
-                              status: salesStatus ?? salesLabel,
-                              compact: true,
+                          const SizedBox(height: 6),
+                          if (sourceLabel != null && sourceLabel!.isNotEmpty) ...[
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.account_tree_outlined,
+                                      size: 13,
+                                      color: AppColors.textTertiary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      sourceLabel!,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textTertiary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (hasSales)
+                                  _SalesIndicatorChip(
+                                    label:
+                                        salesLabel ??
+                                        _normalizeStatus(salesStatus ?? 'Sales'),
+                                    status: salesStatus ?? salesLabel,
+                                    compact: true,
+                                  ),
+                              ],
                             ),
+                            const SizedBox(height: 6),
+                          ],
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  message,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: isUnread
+                                        ? FontWeight.w500
+                                        : FontWeight.w400,
+                                    color: isUnread
+                                        ? AppColors.textPrimary
+                                        : AppColors.textSecondary,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (unreadCount > 0) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.warning,
+                                    borderRadius: BorderRadius.circular(
+                                      RezekiRadii.badge,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    '$unreadCount',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                    ],
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            message,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: isUnread
-                                  ? FontWeight.w500
-                                  : FontWeight.w400,
-                              color: isUnread
-                                  ? AppColors.textPrimary
-                                  : AppColors.textSecondary,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (unreadCount > 0) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.warning,
-                              borderRadius: BorderRadius.circular(
-                                RezekiRadii.badge,
-                              ),
-                            ),
-                            child: Text(
-                              '$unreadCount',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
                     ),
                   ],
                 ),
@@ -6432,7 +6663,7 @@ class _MessageCard extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.05, end: 0, duration: 400.ms);
   }
 }
 
@@ -6634,72 +6865,93 @@ class _ContactCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statusColors = _statusColor(status);
+    final accentColor = statusColors.fg;
 
-    return Card(
-      child: InkWell(
+    return Container(
+      decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(RezekiRadii.card),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
+        boxShadow: RezekiTheme.elevatedShadow,
+      ),
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(RezekiRadii.card),
+          onTap: onTap,
+          child: Stack(
             children: [
-              _Avatar(initial: name[0], imageUrl: avatarUrl),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: Container(
+                  width: 4,
+                  color: accentColor,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+                child: Row(
                   children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.phone_outlined,
-                          size: 14,
-                          color: AppColors.textTertiary,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            phone,
+                    _Avatar(initial: name[0], imageUrl: avatarUrl),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
                             style: const TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w500,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.phone_outlined,
+                                size: 14,
+                                color: AppColors.textTertiary,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  phone,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.textSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              _StatusChip(label: status, colors: statusColors),
+                              _TagChip(label: tag),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        _StatusChip(label: status, colors: statusColors),
-                        _TagChip(label: tag),
-                      ],
-                    ),
+                    const Icon(Icons.chevron_right, color: AppColors.textTertiary),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.textTertiary),
             ],
           ),
         ),
       ),
-    );
+    ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.05, end: 0, duration: 400.ms);
   }
 }
 
@@ -6716,23 +6968,58 @@ class _Avatar extends StatelessWidget {
         ? '?'
         : initial.trim().substring(0, 1).toUpperCase();
     final normalizedImageUrl = imageUrl?.trim();
+    final hasImage =
+        normalizedImageUrl != null && normalizedImageUrl.isNotEmpty;
+    final token = AuthService.instance.session.value?.accessToken;
 
     return Container(
       width: size,
       height: size,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: RezekiTheme.primaryGradient,
-        borderRadius: BorderRadius.all(Radius.circular(RezekiRadii.avatar)),
+        borderRadius: const BorderRadius.all(
+          Radius.circular(RezekiRadii.avatar),
+        ),
+        border: hasImage
+            ? Border.all(
+                color: Colors.white,
+                width: 2.5,
+              )
+            : null,
+        boxShadow: hasImage ? RezekiTheme.softShadow : null,
       ),
       child: ClipRRect(
         borderRadius: const BorderRadius.all(
           Radius.circular(RezekiRadii.avatar),
         ),
-        child: normalizedImageUrl == null || normalizedImageUrl.isEmpty
+        child: !hasImage
             ? _AvatarInitial(initial: normalizedInitial)
             : Image.network(
                 normalizedImageUrl,
                 fit: BoxFit.cover,
+                headers: token != null && token.isNotEmpty
+                    ? {'Authorization': 'Bearer $token'}
+                    : null,
+                frameBuilder: (
+                  context,
+                  child,
+                  frame,
+                  wasSynchronouslyLoaded,
+                ) {
+                  if (wasSynchronouslyLoaded || frame != null) {
+                    return child;
+                  }
+                  return Center(
+                    child: SizedBox(
+                      width: size * 0.4,
+                      height: size * 0.4,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  );
+                },
                 errorBuilder: (context, error, stackTrace) {
                   return _AvatarInitial(initial: normalizedInitial);
                 },

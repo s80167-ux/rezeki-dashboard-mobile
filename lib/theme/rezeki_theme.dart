@@ -3,36 +3,51 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  static const Color background = Color(0xFFF4F7FB);
-  static const Color backgroundMid = Color(0xFFF6F8FC);
-  static const Color backgroundEnd = Color(0xFFEFF4FA);
+  // Core brand
+  static const Color primary = Color(0xFF2563EB);
+  static const Color primaryDark = Color(0xFF1E40AF);
+  static const Color primaryBright = Color(0xFF3B82F6);
+  static const Color ring = Color(0xFF60A5FA);
+
+  // Backgrounds
+  static const Color background = Color(0xFFF8FAFF);
+  static const Color backgroundMid = Color(0xFFF0F5FF);
+  static const Color backgroundEnd = Color(0xFFEEF2FF);
   static const Color surface = Colors.white;
-  static const Color textPrimary = Color(0xFF0E1726);
-  static const Color textSecondary = Color(0xFF5F7088);
-  static const Color textTertiary = Color(0xFF7E8FA8);
-  static const Color border = Color(0xFFDBE4EF);
-  static const Color input = Color(0xFFE9EFF6);
+  static const Color surfaceGlass = Color(0xE6FFFFFF);
 
-  static const Color primary = Color(0xFF2860B8);
-  static const Color primaryDark = Color(0xFF071F52);
-  static const Color primaryBright = Color(0xFF0751D8);
-  static const Color ring = Color(0xFF4D82D6);
-  static const Color secondary = Color(0xFFE5ECF5);
+  // Text
+  static const Color textPrimary = Color(0xFF0F172A);
+  static const Color textSecondary = Color(0xFF475569);
+  static const Color textTertiary = Color(0xFF94A3B8);
 
-  static const Color success = Color(0xFF268158);
-  static const Color successLight = Color(0xFFE7F4ED);
-  static const Color warning = Color(0xFFB57C22);
-  static const Color warningLight = Color(0xFFF7EEDB);
-  static const Color error = Color(0xFFBE4E54);
-  static const Color errorLight = Color(0xFFF8E8E9);
-  static const Color muted = Color(0xFFEDF2F8);
+  // Borders & inputs
+  static const Color border = Color(0xFFE2E8F0);
+  static const Color input = Color(0xFFF1F5F9);
 
-  static const Color newLead = textSecondary;
-  static const Color newLeadLight = muted;
-  static const Color interestedLight = Color(0xFFE9F0FB);
-  static const Color processingLight = Color(0xFFE5EEF9);
+  // Secondary / accent
+  static const Color secondary = Color(0xFFE0E7FF);
+  static const Color accentTeal = Color(0xFF14B8A6);
+  static const Color accentPurple = Color(0xFF8B5CF6);
+  static const Color accentAmber = Color(0xFFF59E0B);
+  static const Color accentRose = Color(0xFFF43F5E);
 
-  // Backward-compatible names used by the current widgets.
+  // Status — vibrant
+  static const Color success = Color(0xFF10B981);
+  static const Color successLight = Color(0xFFD1FAE5);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color warningLight = Color(0xFFFEF3C7);
+  static const Color error = Color(0xFFEF4444);
+  static const Color errorLight = Color(0xFFFEE2E2);
+  static const Color muted = Color(0xFFF1F5F9);
+
+  // Status lead
+  static const Color newLead = Color(0xFF64748B);
+  static const Color newLeadLight = Color(0xFFE2E8F0);
+  static const Color interestedLight = Color(0xFFE0E7FF);
+  static const Color processingLight = Color(0xFFDBEAFE);
+
+  // Backward-compatible names
   static const Color navy = primary;
   static const Color navyLight = primaryBright;
   static const Color orange = warning;
@@ -61,16 +76,25 @@ class RezekiRadii {
   static const double card = 16;
   static const double avatar = 12;
   static const double badge = 999;
+  static const double glass = 20;
 }
 
 class RezekiTheme {
   RezekiTheme._();
 
+  // Background gradients by screen context
   static const LinearGradient appBackgroundGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: [Colors.white, AppColors.backgroundMid, AppColors.backgroundEnd],
     stops: [0, 0.46, 1],
+  );
+
+  static const LinearGradient loginBackgroundGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF0F172A), Color(0xFF1E3A8A), Color(0xFF2563EB)],
+    stops: [0, 0.5, 1],
   );
 
   static const LinearGradient primaryGradient = LinearGradient(
@@ -79,11 +103,66 @@ class RezekiTheme {
     colors: [AppColors.primary, AppColors.primaryBright],
   );
 
+  static const LinearGradient tealPurpleGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF14B8A6), Color(0xFF8B5CF6)],
+  );
+
+  static const LinearGradient amberRoseGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFF59E0B), Color(0xFFF43F5E)],
+  );
+
+  static const LinearGradient surfaceGlassGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFFFFFFF), Color(0xFFF0F5FF)],
+  );
+
+  // Shadows
   static List<BoxShadow> get softShadow => [
     BoxShadow(
-      color: const Color(0xFF0A1525).withValues(alpha: 0.05),
+      color: const Color(0xFF0A1525).withValues(alpha: 0.04),
+      blurRadius: 2,
+      offset: const Offset(0, 1),
+    ),
+    BoxShadow(
+      color: const Color(0xFF0A1525).withValues(alpha: 0.04),
       blurRadius: 8,
-      offset: const Offset(0, 2),
+      offset: const Offset(0, 4),
+    ),
+  ];
+
+  static List<BoxShadow> get elevatedShadow => [
+    BoxShadow(
+      color: const Color(0xFF0A1525).withValues(alpha: 0.04),
+      blurRadius: 2,
+      offset: const Offset(0, 1),
+    ),
+    BoxShadow(
+      color: const Color(0xFF0A1525).withValues(alpha: 0.04),
+      blurRadius: 8,
+      offset: const Offset(0, 4),
+    ),
+    BoxShadow(
+      color: const Color(0xFF0A1525).withValues(alpha: 0.02),
+      blurRadius: 24,
+      offset: const Offset(0, 12),
+    ),
+  ];
+
+  static List<BoxShadow> get glowShadow => [
+    BoxShadow(
+      color: AppColors.primary.withValues(alpha: 0.25),
+      blurRadius: 20,
+      offset: const Offset(0, 4),
+    ),
+    BoxShadow(
+      color: AppColors.primary.withValues(alpha: 0.1),
+      blurRadius: 40,
+      offset: const Offset(0, 12),
     ),
   ];
 
@@ -99,9 +178,18 @@ class RezekiTheme {
     color: AppColors.surface,
     borderRadius: BorderRadius.circular(RezekiRadii.card),
     border: Border.all(
-      color: AppColors.border.withValues(alpha: 0.6),
+      color: AppColors.border.withValues(alpha: 0.5),
     ),
     boxShadow: softShadow,
+  );
+
+  static BoxDecoration get glassDecoration => BoxDecoration(
+    color: AppColors.surfaceGlass,
+    borderRadius: BorderRadius.circular(RezekiRadii.glass),
+    border: Border.all(
+      color: Colors.white.withValues(alpha: 0.6),
+    ),
+    boxShadow: elevatedShadow,
   );
 
   static ({Color bg, Color fg}) statusColors(String status) {
@@ -144,47 +232,49 @@ class RezekiTheme {
       ),
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.w600,
+          fontSize: 32,
+          fontWeight: FontWeight.w800,
+          color: AppColors.textPrimary,
+          letterSpacing: -0.8,
+          height: 1.15,
+        ),
+        headlineMedium: TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
           color: AppColors.textPrimary,
           letterSpacing: -0.5,
           height: 1.2,
         ),
-        headlineMedium: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.w600,
+        headlineSmall: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w800,
           color: AppColors.textPrimary,
           letterSpacing: -0.3,
           height: 1.25,
         ),
-        headlineSmall: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
-          letterSpacing: -0.2,
-          height: 1.3,
-        ),
         titleLarge: TextStyle(
           fontSize: 18,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           color: AppColors.textPrimary,
           height: 1.3,
         ),
         titleMedium: TextStyle(
           fontSize: 16,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           color: AppColors.textPrimary,
           height: 1.35,
         ),
         bodyLarge: TextStyle(
           fontSize: 16,
           color: AppColors.textPrimary,
-          height: 1.45,
+          height: 1.5,
+          letterSpacing: 0.1,
         ),
         bodyMedium: TextStyle(
           fontSize: 14,
           color: AppColors.textSecondary,
-          height: 1.45,
+          height: 1.5,
+          letterSpacing: 0.1,
         ),
         labelLarge: TextStyle(
           fontSize: 14,
@@ -247,7 +337,7 @@ class RezekiTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(RezekiRadii.card),
           side: BorderSide(
-            color: AppColors.border.withValues(alpha: 0.6),
+            color: AppColors.border.withValues(alpha: 0.5),
           ),
         ),
         margin: EdgeInsets.zero,
