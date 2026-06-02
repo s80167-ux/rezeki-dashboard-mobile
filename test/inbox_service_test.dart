@@ -168,6 +168,28 @@ void main() {
         '2026-06-01T12:30:00.000Z',
       );
     });
+
+    test('reads reply and sales metadata from camelCase payload', () {
+      final message = InboxMessage.fromJson({
+        'id': 'message-5',
+        'direction': 'incoming',
+        'messageType': 'text',
+        'contentText': 'Can you send the price list?',
+        'replyToMessageId': 'message-4',
+        'replyPreviewText': 'Sure, I will send it.',
+        'hasSales': true,
+        'salesId': 'lead-1',
+        'salesStatus': 'processing',
+        'salesLabel': 'Processing',
+      });
+
+      expect(message.replyToMessageId, 'message-4');
+      expect(message.replyPreviewText, 'Sure, I will send it.');
+      expect(message.hasSales, isTrue);
+      expect(message.salesId, 'lead-1');
+      expect(message.salesStatus, 'processing');
+      expect(message.salesLabel, 'Processing');
+    });
   });
 
   group('MessagePagination', () {
@@ -218,6 +240,24 @@ void main() {
         conversations.map((conversation) => conversation.id).toList(),
         ['conversation-2', 'conversation-1', 'conversation-3'],
       );
+    });
+
+    test('reads sales metadata from snake_case payload', () {
+      final conversation = InboxConversation.fromJson({
+        'id': 'conversation-sales',
+        'contact_name': 'Latest',
+        'last_message_preview': 'Tagged as sales',
+        'unread_count': 0,
+        'has_sales': true,
+        'sales_id': 'lead-1',
+        'sales_status': 'new_lead',
+        'sales_label': 'New Lead',
+      });
+
+      expect(conversation.hasSales, isTrue);
+      expect(conversation.salesId, 'lead-1');
+      expect(conversation.salesStatus, 'new_lead');
+      expect(conversation.salesLabel, 'New Lead');
     });
   });
 }

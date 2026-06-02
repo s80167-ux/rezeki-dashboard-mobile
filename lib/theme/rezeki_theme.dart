@@ -39,13 +39,27 @@ class AppColors {
   static const Color orangeLight = warningLight;
 }
 
+class RezekiSpacings {
+  RezekiSpacings._();
+
+  static const double xs = 4;
+  static const double sm = 8;
+  static const double md = 12;
+  static const double lg = 16;
+  static const double xl = 20;
+  static const double xxl = 24;
+  static const double xxxl = 32;
+}
+
 class RezekiRadii {
   RezekiRadii._();
 
   static const double none = 0;
-  static const double input = 10;
-  static const double button = 10;
-  static const double avatar = 10;
+  static const double sm = 8;
+  static const double input = 12;
+  static const double button = 12;
+  static const double card = 16;
+  static const double avatar = 12;
   static const double badge = 999;
 }
 
@@ -68,8 +82,8 @@ class RezekiTheme {
   static List<BoxShadow> get softShadow => [
     BoxShadow(
       color: const Color(0xFF0A1525).withValues(alpha: 0.05),
-      blurRadius: 2,
-      offset: const Offset(0, 1),
+      blurRadius: 8,
+      offset: const Offset(0, 2),
     ),
   ];
 
@@ -80,6 +94,32 @@ class RezekiTheme {
       offset: const Offset(0, 16),
     ),
   ];
+
+  static BoxDecoration get cardDecoration => BoxDecoration(
+    color: AppColors.surface,
+    borderRadius: BorderRadius.circular(RezekiRadii.card),
+    border: Border.all(
+      color: AppColors.border.withValues(alpha: 0.6),
+    ),
+    boxShadow: softShadow,
+  );
+
+  static ({Color bg, Color fg}) statusColors(String status) {
+    switch (status) {
+      case 'Closed Won':
+        return (bg: AppColors.successLight, fg: AppColors.success);
+      case 'Closed Lost':
+        return (bg: AppColors.errorLight, fg: AppColors.error);
+      case 'Interested':
+      case 'Contacted':
+        return (bg: AppColors.interestedLight, fg: AppColors.primary);
+      case 'Processing':
+        return (bg: AppColors.warningLight, fg: AppColors.warning);
+      case 'New Lead':
+      default:
+        return (bg: AppColors.newLeadLight, fg: AppColors.newLead);
+    }
+  }
 
   static ThemeData buildTheme() {
     return ThemeData(
@@ -107,27 +147,50 @@ class RezekiTheme {
           fontSize: 28,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
-          letterSpacing: 0,
+          letterSpacing: -0.5,
+          height: 1.2,
         ),
         headlineMedium: TextStyle(
           fontSize: 22,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
-          letterSpacing: 0,
+          letterSpacing: -0.3,
+          height: 1.25,
+        ),
+        headlineSmall: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPrimary,
+          letterSpacing: -0.2,
+          height: 1.3,
         ),
         titleLarge: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
+          height: 1.3,
         ),
         titleMedium: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
+          height: 1.35,
         ),
-        bodyLarge: TextStyle(fontSize: 16, color: AppColors.textPrimary),
-        bodyMedium: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-        labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        bodyLarge: TextStyle(
+          fontSize: 16,
+          color: AppColors.textPrimary,
+          height: 1.45,
+        ),
+        bodyMedium: TextStyle(
+          fontSize: 14,
+          color: AppColors.textSecondary,
+          height: 1.45,
+        ),
+        labelLarge: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          height: 1.3,
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -178,14 +241,17 @@ class RezekiTheme {
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),
-      cardTheme: const CardThemeData(
+      cardTheme: CardThemeData(
         color: AppColors.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.zero,
-          side: BorderSide(color: AppColors.border),
+          borderRadius: BorderRadius.circular(RezekiRadii.card),
+          side: BorderSide(
+            color: AppColors.border.withValues(alpha: 0.6),
+          ),
         ),
         margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
       ),
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.muted,
@@ -222,6 +288,11 @@ class RezekiTheme {
           }
           return const IconThemeData(color: AppColors.textTertiary, size: 24);
         }),
+      ),
+      dialogTheme: const DialogThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(RezekiRadii.card)),
+        ),
       ),
     );
   }

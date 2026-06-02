@@ -84,7 +84,7 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
           return const MainShell();
         }
         return const Scaffold(
-          backgroundColor: Colors.transparent,
+          backgroundColor: AppColors.backgroundEnd,
           body: SafeArea(child: LoginPage()),
         );
       },
@@ -196,38 +196,49 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFFF4F8FF),
         gradient: RezekiTheme.appBackgroundGradient,
       ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const SizedBox(height: 48),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 48),
             // Logo
             Container(
-              width: 280,
-              height: 140,
+              width: 220,
+              height: 120,
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
-                boxShadow: RezekiTheme.panelShadow,
+                borderRadius: BorderRadius.circular(RezekiRadii.card),
+                border: Border.all(
+                  color: AppColors.border.withValues(alpha: 0.6),
+                ),
+                boxShadow: RezekiTheme.softShadow,
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.zero,
-                child: Image.asset(
-                  'assets/logo.png',
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Center(
-                      child: Icon(
-                        Icons.broken_image_outlined,
-                        color: AppColors.textTertiary,
-                        size: 48,
-                      ),
-                    );
-                  },
+                borderRadius: BorderRadius.circular(RezekiRadii.card),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Image.asset(
+                    'assets/logo.png',
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Center(
+                        child: Icon(
+                          Icons.broken_image_outlined,
+                          color: AppColors.textTertiary,
+                          size: 48,
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
@@ -357,7 +368,11 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
           ],
         ),
       ),
-    );
+    ),
+  );
+  },
+),
+);
   }
 }
 
@@ -562,20 +577,30 @@ class _DashboardPageState extends State<DashboardPage> {
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              Image.asset(
+                                'assets/logo.png',
+                                height: 48,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const SizedBox.shrink();
+                                },
+                              ),
+                              const SizedBox(height: 10),
                               Text(
                                 'Dashboard',
                                 style: Theme.of(
                                   context,
                                 ).textTheme.headlineMedium,
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 6),
                               Text(
-                                'Hi $displayName',
+                                'Hi, $displayName',
                                 style: Theme.of(context).textTheme.bodyLarge
                                     ?.copyWith(
                                       color: AppColors.textSecondary,
@@ -616,7 +641,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       physics: const NeverScrollableScrollPhysics(),
                       mainAxisSpacing: 12,
                       crossAxisSpacing: 12,
-                      childAspectRatio: 1.16,
+                      childAspectRatio: 1.05,
                       children: [
                         _SummaryCard(
                           icon: Icons.mark_chat_unread_outlined,
@@ -1173,7 +1198,7 @@ class MorePage extends StatelessWidget {
               const SizedBox(height: 16),
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(18),
                   child: Row(
                     children: [
                       _Avatar(
@@ -1181,7 +1206,7 @@ class MorePage extends StatelessWidget {
                         imageUrl: user?.avatarUrl,
                         size: 64,
                       ),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: 16),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1198,7 +1223,7 @@ class MorePage extends StatelessWidget {
                             ),
                             if (user?.email != null &&
                                 user?.fullName != null) ...[
-                              const SizedBox(height: 3),
+                              const SizedBox(height: 4),
                               Text(
                                 user!.email!,
                                 maxLines: 1,
@@ -1206,14 +1231,14 @@ class MorePage extends StatelessWidget {
                                 style: const TextStyle(
                                   color: AppColors.textSecondary,
                                   fontSize: 13,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ],
                             if ((user?.organizationName ??
                                     user?.organizationId) !=
                                 null) ...[
-                              const SizedBox(height: 5),
+                              const SizedBox(height: 6),
                               Text(
                                 user?.organizationName ?? user!.organizationId!,
                                 maxLines: 1,
@@ -1281,7 +1306,6 @@ class MorePage extends StatelessWidget {
     return showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         title: const Text('Rezeki Dashboard Mobile'),
         content: const Text('CRM for PMKS\nVersion placeholder'),
         actions: [
@@ -1298,7 +1322,6 @@ class MorePage extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         title: const Text('Log Out'),
         content: const Text('Are you sure you want to log out?'),
         actions: [
@@ -1593,6 +1616,9 @@ class _InboxPageState extends State<InboxPage> with WidgetsBindingObserver {
                                 isUnread: item.isUnread,
                                 avatarUrl: item.avatarUrl,
                                 sourceLabel: item.sourceDescription,
+                                hasSales: item.hasSales,
+                                salesLabel: item.salesLabel,
+                                salesStatus: item.salesStatus,
                                 onTap: () => _openConversation(item),
                               ),
                             );
@@ -1675,6 +1701,12 @@ class InboxThreadPage extends StatefulWidget {
 }
 
 class _InboxThreadPageState extends State<InboxThreadPage> {
+  static const _salesStatusOptions = [
+    ('new_lead', 'New Lead'),
+    ('contacted', 'Contacted'),
+    ('interested', 'Interested'),
+    ('processing', 'Processing'),
+  ];
   final InboxService _inboxService = InboxService(
     authService: AuthService.instance,
   );
@@ -1701,6 +1733,9 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
   String? _sendError;
   String? _aiError;
   AiInboxAssistResult? _aiResult;
+  InboxMessage? _replyDraft;
+  bool _isForwarding = false;
+  bool _isCreatingSales = false;
 
   @override
   void initState() {
@@ -1944,7 +1979,12 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
                           }
 
                           final message = messages[index];
-                          return _MessageBubble(message: message);
+                          return _MessageBubble(
+                            message: message,
+                            onLongPress: message.isSystem
+                                ? null
+                                : () => _showMessageActions(message),
+                          );
                         },
                       ),
                     );
@@ -1961,6 +2001,11 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
                 aiResult: _aiResult,
                 errorMessage: _sendError,
                 aiErrorMessage: _aiError,
+                replyLabel: _replyDraft == null
+                  ? null
+                  : _replyLabelForMessage(_replyDraft!),
+                replyPreviewText: _replyDraft?.contentText,
+                onClearReply: _replyDraft == null ? null : _clearReplyDraft,
                 onSend: _sendMessage,
                 onAiAction: _runAiAssist,
                 onUseAiReply: _useAiReply,
@@ -1984,6 +2029,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
   Future<void> _sendMessage() async {
     final text = _composerController.text.trim();
     if (text.isEmpty || _isSending) return;
+    final replyToMessageId = _replyDraft?.id;
 
     setState(() {
       _isSending = true;
@@ -1994,9 +2040,11 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
       await _inboxService.sendMessage(
         conversation: widget.conversation,
         text: text,
+        replyToMessageId: replyToMessageId,
       );
       _composerController.clear();
       _aiResult = null;
+      _replyDraft = null;
       final future = _loadLatestMessages(mergeExisting: true);
       setState(() => _messagesFuture = future);
       _scheduleStatusRefreshes();
@@ -2042,6 +2090,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
       setState(() {
         _messagesFuture = Future.value(messages);
         _sendError = null;
+        _replyDraft = null;
       });
       _scheduleStatusRefreshes();
       return true;
@@ -2189,6 +2238,367 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
     _composerController.text = body;
     _composerController.selection = TextSelection.collapsed(
       offset: _composerController.text.length,
+    );
+  }
+
+  String _replyLabelForMessage(InboxMessage message) {
+    if (message.isOutgoing) return 'You';
+    return widget.conversation.contactName;
+  }
+
+  void _clearReplyDraft() {
+    if (_replyDraft == null) return;
+    setState(() => _replyDraft = null);
+  }
+
+  Future<void> _showMessageActions(InboxMessage message) async {
+    final canCopy = _canCopyMessageText(message);
+    final action = await showModalBottomSheet<_ThreadMessageAction>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.reply_outlined),
+                title: const Text('Reply'),
+                onTap: () => Navigator.of(context).pop(_ThreadMessageAction.reply),
+              ),
+              ListTile(
+                leading: const Icon(Icons.forward_outlined),
+                title: const Text('Forward'),
+                onTap: () => Navigator.of(context).pop(_ThreadMessageAction.forward),
+              ),
+              ListTile(
+                leading: Icon(
+                  message.hasSales
+                      ? Icons.business_center_outlined
+                      : Icons.work_outline,
+                ),
+                title: Text(message.hasSales ? 'View Sales' : 'Create Sales'),
+                subtitle: message.hasSales && message.salesLabel != null
+                    ? Text(message.salesLabel!)
+                    : null,
+                onTap: () => Navigator.of(context).pop(
+                  message.hasSales
+                      ? _ThreadMessageAction.viewSales
+                      : _ThreadMessageAction.createSales,
+                ),
+              ),
+              if (canCopy)
+                ListTile(
+                  leading: const Icon(Icons.copy_all_outlined),
+                  title: const Text('Copy text'),
+                  onTap: () => Navigator.of(context).pop(_ThreadMessageAction.copy),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (!mounted || action == null) return;
+
+    switch (action) {
+      case _ThreadMessageAction.reply:
+        setState(() => _replyDraft = message);
+        return;
+      case _ThreadMessageAction.forward:
+        await _showForwardPicker(message);
+        return;
+      case _ThreadMessageAction.createSales:
+        await _showCreateSalesSheet(message);
+        return;
+      case _ThreadMessageAction.viewSales:
+        await _viewSales(message);
+        return;
+      case _ThreadMessageAction.copy:
+        await Clipboard.setData(ClipboardData(text: message.contentText));
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Message copied.')));
+        return;
+    }
+  }
+
+  bool _canCopyMessageText(InboxMessage message) {
+    final text = message.contentText.trim();
+    return text.isNotEmpty && !(text.startsWith('[') && text.endsWith(']'));
+  }
+
+  Future<void> _showForwardPicker(InboxMessage message) async {
+    if (_isForwarding) return;
+
+    setState(() => _isForwarding = true);
+    try {
+      final conversations = await _inboxService.fetchConversations(
+        forceRefresh: true,
+      );
+      final targets = conversations
+          .where((item) => item.id != widget.conversation.id)
+          .toList();
+
+      if (!mounted) return;
+      if (targets.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No other conversations available.')),
+        );
+        return;
+      }
+
+      final target = await showModalBottomSheet<InboxConversation>(
+        context: context,
+        showDragHandle: true,
+        builder: (context) {
+          return SafeArea(
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              itemCount: targets.length,
+              separatorBuilder: (_, _) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final item = targets[index];
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(_conversationSourceIcon(item.channel)),
+                  title: Text(item.contactName),
+                  subtitle: Text(
+                    item.lastMessagePreview,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  onTap: () => Navigator.of(context).pop(item),
+                );
+              },
+            ),
+          );
+        },
+      );
+
+      if (!mounted || target == null) return;
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Forward message'),
+          content: Text('Forward this message to ${target.contactName}?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Forward'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true || !mounted) return;
+
+      await _inboxService.forwardMessage(
+        messageId: message.id,
+        targetConversationId: target.id,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Message forwarded to ${target.contactName}.')),
+      );
+    } on InboxServiceException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } on AuthServiceException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) {
+        setState(() => _isForwarding = false);
+      }
+    }
+  }
+
+  Future<void> _showCreateSalesSheet(InboxMessage message) async {
+    if (_isCreatingSales || message.hasSales) {
+      if (message.hasSales) {
+        await _viewSales(message);
+      }
+      return;
+    }
+
+    final selectedStatus = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) {
+        var status = _salesStatusOptions.first.$1;
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Create Sales',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      widget.conversation.contactName,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.muted,
+                        borderRadius: BorderRadius.circular(RezekiRadii.input),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Text(
+                        message.contentText,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: status,
+                      decoration: const InputDecoration(
+                        labelText: 'Sales status',
+                        prefixIcon: Icon(Icons.work_outline),
+                      ),
+                      items: _salesStatusOptions
+                          .map(
+                            (option) => DropdownMenuItem(
+                              value: option.$1,
+                              child: Text(option.$2),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setModalState(() => status = value);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () => Navigator.of(context).pop(status),
+                        icon: const Icon(Icons.business_center_outlined),
+                        label: const Text('Create Sales'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (selectedStatus == null || !mounted) return;
+
+    setState(() => _isCreatingSales = true);
+    try {
+      final salesLink = await _inboxService.createSalesFromMessage(
+        messageId: message.id,
+        status: selectedStatus,
+      );
+      if (!mounted) return;
+
+      _inboxService.cacheSalesMetadata(
+        messageId: message.id,
+        conversationId: widget.conversation.id,
+        salesLink: salesLink,
+      );
+
+      final updatedMessages = _messages
+          .map(
+            (item) => item.id == message.id
+                ? item.copyWith(
+                    hasSales: true,
+                    salesId: salesLink.id,
+                    salesStatus: salesLink.status,
+                    salesLabel: salesLink.label,
+                  )
+                : item,
+          )
+          .toList();
+
+      setState(() {
+        _messages = updatedMessages;
+        _messagesFuture = Future.value(updatedMessages);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${salesLink.label} linked to this message.')),
+      );
+    } on InboxServiceException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } on AuthServiceException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) {
+        setState(() => _isCreatingSales = false);
+      }
+    }
+  }
+
+  Future<void> _viewSales(InboxMessage message) async {
+    final salesId = message.salesId;
+    if (salesId == null || salesId.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sales are already linked to this message.')),
+      );
+      return;
+    }
+
+    final displayStatus = message.salesLabel ??
+        message.salesStatus ??
+        _salesStatusOptions.first.$2;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => LeadDetailPage(
+          lead: SalesLead(
+            id: salesId,
+            contactId: widget.conversation.contactId ?? '',
+            status: message.salesStatus ?? 'new_lead',
+            displayStatus: _normalizeStatus(displayStatus),
+            name: widget.conversation.contactName,
+            phone: 'No phone',
+          ),
+        ),
+      ),
     );
   }
 
@@ -3168,13 +3578,22 @@ class _SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: InkWell(
+        borderRadius: BorderRadius.circular(RezekiRadii.card),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: AppColors.primary, size: 24),
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  gradient: RezekiTheme.primaryGradient,
+                  borderRadius: BorderRadius.circular(RezekiRadii.sm),
+                ),
+                child: Icon(icon, color: Colors.white, size: 20),
+              ),
               const Spacer(),
               Text(
                 value,
@@ -3183,7 +3602,7 @@ class _SummaryCard extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 4),
               Text(
                 label,
                 maxLines: 1,
@@ -3195,7 +3614,7 @@ class _SummaryCard extends StatelessWidget {
                 ),
               ),
               if (helper != null) ...[
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
                   helper!,
                   style: const TextStyle(
@@ -3238,7 +3657,7 @@ class _PipelineSummary extends StatelessWidget {
               title: 'Pipeline Summary',
               subtitle: 'Lead status overview',
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
@@ -3275,11 +3694,12 @@ class _MiniMetric extends StatelessWidget {
       children: [
         Text(
           value.toString(),
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            color: AppColors.textPrimary,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            color: AppColors.primary,
             fontWeight: FontWeight.w800,
           ),
         ),
+        const SizedBox(height: 2),
         Text(
           label,
           maxLines: 1,
@@ -3344,16 +3764,17 @@ class _LeadCard extends StatelessWidget {
 
     return Card(
       child: InkWell(
+        borderRadius: BorderRadius.circular(RezekiRadii.card),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
               _Avatar(
                 initial: displayName.isEmpty ? '?' : displayName[0],
                 imageUrl: contact?.avatarUrl,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3367,7 +3788,7 @@ class _LeadCard extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 4),
                     Text(
                       phone,
                       maxLines: 1,
@@ -3375,11 +3796,12 @@ class _LeadCard extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 13,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 10),
                     Wrap(
-                      spacing: 6,
+                      spacing: 8,
                       runSpacing: 6,
                       children: [
                         _StatusChip(
@@ -3449,10 +3871,28 @@ class _MoreMenuTile extends StatelessWidget {
     final color = destructive ? AppColors.error : AppColors.textPrimary;
 
     return ListTile(
-      leading: Icon(icon, color: color),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(RezekiRadii.card),
+      ),
+      leading: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: destructive
+              ? AppColors.errorLight
+              : AppColors.secondary,
+          borderRadius: BorderRadius.circular(RezekiRadii.sm),
+        ),
+        child: Icon(icon, color: color, size: 20),
+      ),
       title: Text(
         label,
-        style: TextStyle(color: color, fontWeight: FontWeight.w700),
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 15,
+        ),
       ),
       trailing: destructive
           ? null
@@ -3796,8 +4236,20 @@ class _PageStateMessage extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: AppColors.textTertiary, size: 42),
-            const SizedBox(height: 12),
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: AppColors.muted,
+                borderRadius: BorderRadius.circular(RezekiRadii.card),
+              ),
+              child: Icon(
+                icon,
+                color: AppColors.textTertiary,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
             Text(
               title,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -3835,7 +4287,7 @@ class _ThreadHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 8, 16, 12),
+      padding: const EdgeInsets.fromLTRB(4, 4, 16, 10),
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(
@@ -3879,11 +4331,11 @@ class _ThreadHeader extends StatelessWidget {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        'Source: ${conversation.sourceDescription}',
+                        conversation.sourceDescription,
                         style: const TextStyle(
                           color: AppColors.textTertiary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -3983,6 +4435,9 @@ class _CrmActionButton extends StatelessWidget {
       style: OutlinedButton.styleFrom(
         visualDensity: VisualDensity.compact,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(RezekiRadii.sm),
+        ),
       ),
     );
   }
@@ -4035,9 +4490,10 @@ class _ShowMoreMessagesButton extends StatelessWidget {
 }
 
 class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message});
+  const _MessageBubble({required this.message, this.onLongPress});
 
   final InboxMessage message;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -4052,70 +4508,105 @@ class _MessageBubble extends StatelessWidget {
     final textColor = isOutgoing ? Colors.white : AppColors.textPrimary;
     final presentation = message.presentation;
 
-    return Align(
-      alignment: isSystem ? Alignment.center : alignment,
-      child: Container(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width * 0.78,
-        ),
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: bubbleColor,
-          borderRadius: BorderRadius.circular(RezekiRadii.input),
-          border: isOutgoing
-              ? null
-              : Border.all(color: AppColors.border.withValues(alpha: 0.75)),
-          boxShadow: isOutgoing ? RezekiTheme.softShadow : null,
-        ),
-        child: Column(
-          crossAxisAlignment: isOutgoing
-              ? CrossAxisAlignment.end
-              : CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (presentation.isMedia)
-              _MessageAttachmentView(
-                presentation: presentation,
-                isOutgoing: isOutgoing,
+    final borderRadius = isSystem
+        ? BorderRadius.circular(RezekiRadii.input)
+        : isOutgoing
+            ? const BorderRadius.only(
+                topLeft: Radius.circular(RezekiRadii.input),
+                topRight: Radius.circular(RezekiRadii.input),
+                bottomLeft: Radius.circular(RezekiRadii.input),
+                bottomRight: Radius.circular(4),
               )
-            else
-              Text(
-                presentation.title,
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 14,
-                  fontWeight: isSystem ? FontWeight.w500 : FontWeight.w400,
-                  height: 1.35,
-                ),
+            : const BorderRadius.only(
+                topLeft: Radius.circular(RezekiRadii.input),
+                topRight: Radius.circular(RezekiRadii.input),
+                bottomLeft: Radius.circular(4),
+                bottomRight: Radius.circular(RezekiRadii.input),
+              );
+
+    final bubble = Container(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.sizeOf(context).width * 0.78,
+      ),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: bubbleColor,
+        borderRadius: borderRadius,
+        border: isOutgoing
+            ? null
+            : Border.all(color: AppColors.border.withValues(alpha: 0.75)),
+        boxShadow: isSystem ? null : RezekiTheme.softShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: isOutgoing
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (message.replyPreviewText != null && message.replyPreviewText!.isNotEmpty) ...[
+            _ReplySnippet(
+              text: message.replyPreviewText!,
+              isOutgoing: isOutgoing,
+            ),
+            const SizedBox(height: 8),
+          ],
+          if (presentation.isMedia)
+            _MessageAttachmentView(
+              presentation: presentation,
+              isOutgoing: isOutgoing,
+            )
+          else
+            Text(
+              presentation.title,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 14,
+                fontWeight: isSystem ? FontWeight.w500 : FontWeight.w400,
+                height: 1.35,
               ),
-            const SizedBox(height: 6),
-            if (_messageTimestamp != null ||
-                (isOutgoing && _MessageStatusLabel.hasVisibleStatus(message)))
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_messageTimestamp != null)
-                    Flexible(
-                      child: Text(
-                        _formatMessageTime(_messageTimestamp!),
-                        style: TextStyle(
-                          color:
-                              isOutgoing ? Colors.white : AppColors.textPrimary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
+            ),
+          if (message.hasSales) ...[
+            const SizedBox(height: 8),
+            _SalesIndicatorChip(
+              label: message.salesLabel ??
+                  _normalizeStatus(message.salesStatus ?? 'Sales'),
+              status: message.salesStatus ?? message.salesLabel,
+              compact: true,
+            ),
+          ],
+          const SizedBox(height: 6),
+          if (_messageTimestamp != null ||
+              (isOutgoing && _MessageStatusLabel.hasVisibleStatus(message)))
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_messageTimestamp != null)
+                  Flexible(
+                    child: Text(
+                      _formatMessageTime(_messageTimestamp!),
+                      style: TextStyle(
+                        color: isOutgoing
+                            ? Colors.white.withValues(alpha: 0.85)
+                            : AppColors.textSecondary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  if (isOutgoing && _MessageStatusLabel.hasVisibleStatus(message)) ...[
-                    if (_messageTimestamp != null) const SizedBox(width: 8),
-                    _MessageStatusLabel(message: message),
-                  ],
+                  ),
+                if (isOutgoing && _MessageStatusLabel.hasVisibleStatus(message)) ...[
+                  if (_messageTimestamp != null) const SizedBox(width: 8),
+                  _MessageStatusLabel(message: message),
                 ],
-              ),
-          ],
-        ),
+              ],
+            ),
+        ],
       ),
+    );
+
+    return Align(
+      alignment: isSystem ? Alignment.center : alignment,
+      child: GestureDetector(onLongPress: onLongPress, child: bubble),
     );
   }
 
@@ -4380,6 +4871,9 @@ class _MessageComposer extends StatelessWidget {
     required this.onQuickReply,
     required this.hasQuickReplies,
     required this.hasDraft,
+    this.replyLabel,
+    this.replyPreviewText,
+    this.onClearReply,
     this.aiResult,
     this.errorMessage,
     this.aiErrorMessage,
@@ -4397,6 +4891,9 @@ class _MessageComposer extends StatelessWidget {
   final VoidCallback onQuickReply;
   final bool hasQuickReplies;
   final bool hasDraft;
+  final String? replyLabel;
+  final String? replyPreviewText;
+  final VoidCallback? onClearReply;
   final AiInboxAssistResult? aiResult;
   final String? errorMessage;
   final String? aiErrorMessage;
@@ -4406,7 +4903,7 @@ class _MessageComposer extends StatelessWidget {
     final canType = enabled && !isSending;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(
@@ -4414,95 +4911,112 @@ class _MessageComposer extends StatelessWidget {
         ),
         boxShadow: RezekiTheme.softShadow,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (enabled) ...[
-            _InboxAiAssistPanel(
-              isThinking: isAiThinking,
-              isCheckingAvailability: isCheckingAiAvailability,
-              isEnabled: isAiAssistEnabled,
-              result: aiResult,
-              errorMessage: aiErrorMessage,
-              hasDraft: hasDraft,
-              onAction: onAiAction,
-              onUseReply: onUseAiReply,
-            ),
-            const SizedBox(height: 10),
-          ],
-          if (!enabled || errorMessage != null) ...[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                errorMessage ??
-                    'This conversation is not available for mobile replies.',
-                style: TextStyle(
-                  color: errorMessage == null
-                      ? AppColors.textTertiary
-                      : AppColors.error,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (replyPreviewText != null && replyPreviewText!.isNotEmpty) ...[
+              _ComposerReplyPreview(
+                label: replyLabel ?? 'Replying',
+                text: replyPreviewText!,
+                onClear: onClearReply,
               ),
-            ),
-            const SizedBox(height: 8),
-          ],
-          Row(
-            children: [
-              SizedBox(
-                width: 44,
-                height: 44,
-                child: IconButton(
-                  tooltip: 'Quick replies',
-                  onPressed: canType ? onQuickReply : null,
-                  icon: Icon(
-                    hasQuickReplies
-                        ? Icons.quickreply
-                        : Icons.quickreply_outlined,
+              const SizedBox(height: 10),
+            ],
+            if (enabled) ...[
+              _InboxAiAssistPanel(
+                isThinking: isAiThinking,
+                isCheckingAvailability: isCheckingAiAvailability,
+                isEnabled: isAiAssistEnabled,
+                result: aiResult,
+                errorMessage: aiErrorMessage,
+                hasDraft: hasDraft,
+                onAction: onAiAction,
+                onUseReply: onUseAiReply,
+              ),
+              const SizedBox(height: 10),
+            ],
+            if (!enabled || errorMessage != null) ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  errorMessage ??
+                      'This conversation is not available for mobile replies.',
+                  style: TextStyle(
+                    color: errorMessage == null
+                        ? AppColors.textTertiary
+                        : AppColors.error,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  enabled: canType,
-                  minLines: 1,
-                  maxLines: 4,
-                  textInputAction: TextInputAction.newline,
-                  decoration: const InputDecoration(
-                    hintText: 'Write a message...',
-                    prefixIcon: Icon(Icons.message_outlined),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              SizedBox(
-                width: 48,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: canType ? onSend : null,
-                  style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(RezekiRadii.button),
+              const SizedBox(height: 8),
+            ],
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                SizedBox(
+                  width: 44,
+                  height: 48,
+                  child: IconButton(
+                    tooltip: 'Quick replies',
+                    onPressed: canType ? onQuickReply : null,
+                    icon: Icon(
+                      hasQuickReplies
+                          ? Icons.quickreply
+                          : Icons.quickreply_outlined,
+                      color: canType ? AppColors.primary : AppColors.textTertiary,
                     ),
                   ),
-                  child: isSending
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.send_outlined, size: 20),
                 ),
-              ),
-            ],
-          ),
-        ],
+                const SizedBox(width: 6),
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    enabled: canType,
+                    minLines: 1,
+                    maxLines: 4,
+                    textInputAction: TextInputAction.newline,
+                    decoration: const InputDecoration(
+                      hintText: 'Write a message...',
+                      prefixIcon: Icon(Icons.message_outlined),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: canType ? onSend : null,
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(RezekiRadii.button),
+                      ),
+                    ),
+                    child: isSending
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.send_outlined, size: 20),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -4810,7 +5324,7 @@ class _ContactDetailHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 8, 16, 16),
+      padding: const EdgeInsets.fromLTRB(4, 4, 12, 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(
@@ -4875,7 +5389,7 @@ class _SimpleDetailHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 8, 16, 16),
+      padding: const EdgeInsets.fromLTRB(4, 4, 16, 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(
@@ -4890,10 +5404,14 @@ class _SimpleDetailHeader extends StatelessWidget {
             tooltip: 'Back',
             onPressed: () => Navigator.of(context).pop(),
           ),
-          CircleAvatar(
-            backgroundColor: AppColors.secondary,
-            foregroundColor: AppColors.primary,
-            child: Icon(icon),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              gradient: RezekiTheme.primaryGradient,
+              borderRadius: BorderRadius.circular(RezekiRadii.sm),
+            ),
+            child: Icon(icon, color: Colors.white, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -4939,7 +5457,7 @@ class _EditHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 8, 12, 12),
+      padding: const EdgeInsets.fromLTRB(4, 4, 12, 10),
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(
@@ -4992,16 +5510,30 @@ class _InlineNotice extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.errorLight,
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.25)),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.15)),
         borderRadius: BorderRadius.circular(RezekiRadii.input),
       ),
-      child: Text(
-        message,
-        style: const TextStyle(
-          color: AppColors.error,
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-        ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.error_outline,
+            color: AppColors.error,
+            size: 18,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: AppColors.error,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -5207,6 +5739,14 @@ class _ContactActionButton extends StatelessWidget {
       onPressed: enabled ? onPressed : null,
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 10),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(RezekiRadii.sm),
+        ),
+        side: BorderSide(
+          color: enabled
+              ? AppColors.border
+              : AppColors.border.withValues(alpha: 0.5),
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -5218,13 +5758,21 @@ class _ContactActionButton extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           else
-            Icon(icon, size: 18),
+            Icon(
+              icon,
+              size: 18,
+              color: enabled ? AppColors.primary : AppColors.textTertiary,
+            ),
           const SizedBox(height: 4),
           Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 11),
+            style: TextStyle(
+              fontSize: 11,
+              color: enabled ? AppColors.textPrimary : AppColors.textTertiary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -5246,12 +5794,25 @@ class _DetailSection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w700,
-              ),
+            Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             ...children,
@@ -5280,8 +5841,16 @@ class _DetailRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: AppColors.textTertiary, size: 18),
-          const SizedBox(width: 10),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: AppColors.muted,
+              borderRadius: BorderRadius.circular(RezekiRadii.sm),
+            ),
+            child: Icon(icon, color: AppColors.textTertiary, size: 16),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -5301,6 +5870,7 @@ class _DetailRow extends StatelessWidget {
                     color: AppColors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
+                    height: 1.4,
                   ),
                 ),
               ],
@@ -5365,27 +5935,34 @@ class _SearchBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.input,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(RezekiRadii.input),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.8)),
         boxShadow: RezekiTheme.softShadow,
       ),
       child: Row(
         children: [
           const Padding(
-            padding: EdgeInsets.only(left: 16),
-            child: Icon(Icons.search, color: AppColors.textTertiary),
+            padding: EdgeInsets.only(left: 14),
+            child: Icon(
+              Icons.search,
+              color: AppColors.textTertiary,
+              size: 20,
+            ),
           ),
           Expanded(
             child: TextField(
               onChanged: onChanged,
               decoration: InputDecoration(
                 hintText: hint,
-                hintStyle: const TextStyle(color: AppColors.textTertiary),
+                hintStyle: const TextStyle(
+                  color: AppColors.textTertiary,
+                  fontWeight: FontWeight.w500,
+                ),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 14,
+                  horizontal: 10,
+                  vertical: 12,
                 ),
               ),
             ),
@@ -5404,6 +5981,9 @@ class _MessageCard extends StatelessWidget {
   final bool isUnread;
   final String? avatarUrl;
   final String? sourceLabel;
+  final bool hasSales;
+  final String? salesLabel;
+  final String? salesStatus;
   final VoidCallback? onTap;
 
   const _MessageCard({
@@ -5414,6 +5994,9 @@ class _MessageCard extends StatelessWidget {
     required this.isUnread,
     this.avatarUrl,
     this.sourceLabel,
+    this.hasSales = false,
+    this.salesLabel,
+    this.salesStatus,
     this.onTap,
   });
 
@@ -5421,7 +6004,7 @@ class _MessageCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: InkWell(
-        borderRadius: BorderRadius.zero,
+        borderRadius: BorderRadius.circular(RezekiRadii.card),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -5457,7 +6040,7 @@ class _MessageCard extends StatelessWidget {
                                 ? FontWeight.w600
                                 : FontWeight.w400,
                             color: isUnread
-                                ? AppColors.navy
+                                ? AppColors.primary
                                 : AppColors.textTertiary,
                           ),
                         ),
@@ -5465,26 +6048,37 @@ class _MessageCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     if (sourceLabel != null && sourceLabel!.isNotEmpty) ...[
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          const Icon(
-                            Icons.account_tree_outlined,
-                            size: 13,
-                            color: AppColors.textTertiary,
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              sourceLabel!,
-                              style: const TextStyle(
-                                fontSize: 12,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.account_tree_outlined,
+                                size: 13,
                                 color: AppColors.textTertiary,
-                                fontWeight: FontWeight.w600,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                              const SizedBox(width: 4),
+                              Text(
+                                sourceLabel!,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textTertiary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
+                          if (hasSales)
+                            _SalesIndicatorChip(
+                              label: salesLabel ??
+                                  _normalizeStatus(salesStatus ?? 'Sales'),
+                              status: salesStatus ?? salesLabel,
+                              compact: true,
+                            ),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -5515,7 +6109,7 @@ class _MessageCard extends StatelessWidget {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.orange,
+                              color: AppColors.warning,
                               borderRadius: BorderRadius.circular(
                                 RezekiRadii.badge,
                               ),
@@ -5538,6 +6132,184 @@ class _MessageCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+enum _ThreadMessageAction { reply, forward, createSales, viewSales, copy }
+
+class _ReplySnippet extends StatelessWidget {
+  const _ReplySnippet({required this.text, required this.isOutgoing});
+
+  final String text;
+  final bool isOutgoing;
+
+  @override
+  Widget build(BuildContext context) {
+    final fgColor = isOutgoing
+        ? Colors.white.withValues(alpha: 0.92)
+        : AppColors.textPrimary;
+    final mutedColor = isOutgoing
+        ? Colors.white.withValues(alpha: 0.72)
+        : AppColors.textSecondary;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isOutgoing
+            ? Colors.white.withValues(alpha: 0.14)
+            : AppColors.muted,
+        borderRadius: BorderRadius.circular(RezekiRadii.input),
+        border: Border.all(
+          color: isOutgoing
+              ? Colors.white.withValues(alpha: 0.18)
+              : AppColors.border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Replying to',
+            style: TextStyle(
+              color: mutedColor,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            text,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: fgColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ComposerReplyPreview extends StatelessWidget {
+  const _ComposerReplyPreview({
+    required this.label,
+    required this.text,
+    this.onClear,
+  });
+
+  final String label;
+  final String text;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: AppColors.muted,
+        borderRadius: BorderRadius.circular(RezekiRadii.input),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 4,
+            height: 34,
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(RezekiRadii.badge),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  text,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: onClear,
+            tooltip: 'Cancel reply',
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.close, size: 18),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SalesIndicatorChip extends StatelessWidget {
+  const _SalesIndicatorChip({
+    required this.label,
+    this.status,
+    this.compact = false,
+  });
+
+  final String label;
+  final String? status;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _statusColors(status ?? label);
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 10,
+        vertical: compact ? 4 : 5,
+      ),
+      decoration: BoxDecoration(
+        color: colors.bg,
+        borderRadius: BorderRadius.circular(RezekiRadii.badge),
+        border: Border.all(color: colors.fg.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            compact ? Icons.work_outline : Icons.business_center_outlined,
+            size: compact ? 13 : 14,
+            color: colors.fg,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              color: colors.fg,
+              fontSize: compact ? 11 : 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -5566,7 +6338,7 @@ class _ContactCard extends StatelessWidget {
 
     return Card(
       child: InkWell(
-        borderRadius: BorderRadius.zero,
+        borderRadius: BorderRadius.circular(RezekiRadii.card),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -5603,6 +6375,7 @@ class _ContactCard extends StatelessWidget {
                             style: const TextStyle(
                               fontSize: 13,
                               color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w500,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -5613,6 +6386,7 @@ class _ContactCard extends StatelessWidget {
                     const SizedBox(height: 10),
                     Wrap(
                       spacing: 8,
+                      runSpacing: 6,
                       children: [
                         _StatusChip(label: status, colors: statusColors),
                         _TagChip(label: tag),
@@ -5705,11 +6479,13 @@ class _FilterChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeInOut,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : AppColors.surface,
-          borderRadius: BorderRadius.circular(RezekiRadii.input),
+          gradient: isSelected ? RezekiTheme.primaryGradient : null,
+          color: isSelected ? null : AppColors.surface,
+          borderRadius: BorderRadius.circular(RezekiRadii.button),
           border: Border.all(
             color: isSelected ? AppColors.primary : AppColors.border,
           ),
@@ -5741,7 +6517,7 @@ class _StatusChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.bg,
         borderRadius: BorderRadius.circular(RezekiRadii.badge),
-        border: Border.all(color: colors.fg.withValues(alpha: 0.2)),
+        border: Border.all(color: colors.fg.withValues(alpha: 0.15)),
       ),
       child: Text(
         label,
@@ -5766,7 +6542,7 @@ class _TagChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.muted,
         borderRadius: BorderRadius.circular(RezekiRadii.badge),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.8)),
       ),
       child: Text(
         label,

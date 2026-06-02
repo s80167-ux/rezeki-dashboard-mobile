@@ -21,6 +21,10 @@ class InboxConversation {
     this.avatarUrl,
     this.leadStatus,
     this.tag,
+    this.hasSales = false,
+    this.salesId,
+    this.salesStatus,
+    this.salesLabel,
   });
 
   factory InboxConversation.fromJson(Map<String, dynamic> json) {
@@ -61,6 +65,12 @@ class InboxConversation {
             json['source_label'] ??
             json['sourceLabel'],
       ),
+      hasSales: _readBool(json['has_sales'] ?? json['hasSales']),
+      salesId: _readNullableString(json['sales_id'] ?? json['salesId']),
+      salesStatus: _readNullableString(
+        json['sales_status'] ?? json['salesStatus'],
+      ),
+      salesLabel: _readNullableString(json['sales_label'] ?? json['salesLabel']),
     );
   }
 
@@ -76,6 +86,10 @@ class InboxConversation {
   final String? avatarUrl;
   final String? leadStatus;
   final String? tag;
+  final bool hasSales;
+  final String? salesId;
+  final String? salesStatus;
+  final String? salesLabel;
 
   InboxConversation copyWith({
     String? contactName,
@@ -89,6 +103,10 @@ class InboxConversation {
     String? avatarUrl,
     String? leadStatus,
     String? tag,
+    bool? hasSales,
+    String? salesId,
+    String? salesStatus,
+    String? salesLabel,
   }) {
     return InboxConversation(
       id: id,
@@ -103,6 +121,10 @@ class InboxConversation {
       avatarUrl: avatarUrl ?? this.avatarUrl,
       leadStatus: leadStatus ?? this.leadStatus,
       tag: tag ?? this.tag,
+      hasSales: hasSales ?? this.hasSales,
+      salesId: salesId ?? this.salesId,
+      salesStatus: salesStatus ?? this.salesStatus,
+      salesLabel: salesLabel ?? this.salesLabel,
     );
   }
 
@@ -217,6 +239,20 @@ class InboxConversation {
     return DateTime.tryParse(value)?.toLocal();
   }
 
+  static bool _readBool(Object? value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      switch (value.trim().toLowerCase()) {
+        case 'true':
+        case '1':
+        case 'yes':
+          return true;
+      }
+    }
+    return false;
+  }
+
   static String _shortId(String value) {
     if (value.length <= 8) return value;
     return value.substring(value.length - 8);
@@ -235,6 +271,12 @@ class InboxMessage {
     this.contentJson,
     this.externalMessageId,
     this.ackStatus,
+    this.replyToMessageId,
+    this.replyPreviewText,
+    this.hasSales = false,
+    this.salesId,
+    this.salesStatus,
+    this.salesLabel,
   });
 
   factory InboxMessage.fromJson(Map<String, dynamic> json) {
@@ -252,6 +294,18 @@ class InboxMessage {
         json['external_message_id'] ?? json['externalMessageId'],
       ),
       ackStatus: _readNullableString(json['ack_status'] ?? json['ackStatus']),
+      replyToMessageId: _readNullableString(
+        json['reply_to_message_id'] ?? json['replyToMessageId'],
+      ),
+      replyPreviewText: _readNullableString(
+        json['reply_preview_text'] ?? json['replyPreviewText'],
+      ),
+      hasSales: _readBool(json['has_sales'] ?? json['hasSales']),
+      salesId: _readNullableString(json['sales_id'] ?? json['salesId']),
+      salesStatus: _readNullableString(
+        json['sales_status'] ?? json['salesStatus'],
+      ),
+      salesLabel: _readNullableString(json['sales_label'] ?? json['salesLabel']),
     );
   }
 
@@ -265,10 +319,53 @@ class InboxMessage {
   final DateTime? sortAt;
   final String? externalMessageId;
   final String? ackStatus;
+  final String? replyToMessageId;
+  final String? replyPreviewText;
+  final bool hasSales;
+  final String? salesId;
+  final String? salesStatus;
+  final String? salesLabel;
 
   bool get isOutgoing => direction == 'outgoing';
   bool get isSystem => direction == 'system';
   DateTime? get timelineAt => sortAt ?? sentAt ?? createdAt;
+
+  InboxMessage copyWith({
+    String? direction,
+    String? messageType,
+    String? contentText,
+    Object? contentJson,
+    DateTime? sentAt,
+    DateTime? createdAt,
+    DateTime? sortAt,
+    String? externalMessageId,
+    String? ackStatus,
+    String? replyToMessageId,
+    String? replyPreviewText,
+    bool? hasSales,
+    String? salesId,
+    String? salesStatus,
+    String? salesLabel,
+  }) {
+    return InboxMessage(
+      id: id,
+      direction: direction ?? this.direction,
+      messageType: messageType ?? this.messageType,
+      contentText: contentText ?? this.contentText,
+      contentJson: contentJson ?? this.contentJson,
+      sentAt: sentAt ?? this.sentAt,
+      createdAt: createdAt ?? this.createdAt,
+      sortAt: sortAt ?? this.sortAt,
+      externalMessageId: externalMessageId ?? this.externalMessageId,
+      ackStatus: ackStatus ?? this.ackStatus,
+      replyToMessageId: replyToMessageId ?? this.replyToMessageId,
+      replyPreviewText: replyPreviewText ?? this.replyPreviewText,
+      hasSales: hasSales ?? this.hasSales,
+      salesId: salesId ?? this.salesId,
+      salesStatus: salesStatus ?? this.salesStatus,
+      salesLabel: salesLabel ?? this.salesLabel,
+    );
+  }
 
   static int compareByTimelineAsc(InboxMessage left, InboxMessage right) {
     final leftTime = left.timelineAt?.millisecondsSinceEpoch ?? 0;
@@ -371,6 +468,79 @@ class InboxMessage {
     if (value is String && value.trim().isNotEmpty) return value.trim();
     return null;
   }
+
+  static bool _readBool(Object? value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      switch (value.trim().toLowerCase()) {
+        case 'true':
+        case '1':
+        case 'yes':
+          return true;
+      }
+    }
+    return false;
+  }
+}
+
+class MessageSalesLink {
+  const MessageSalesLink({
+    required this.id,
+    required this.status,
+    required this.displayStatus,
+    required this.label,
+    this.sourceMessageId,
+    this.conversationId,
+    this.contactId,
+  });
+
+  factory MessageSalesLink.fromJson(Map<String, dynamic> json) {
+    final status = _readNullableString(json['status']) ?? 'new_lead';
+    final displayStatus =
+        _readNullableString(json['displayStatus'] ?? json['display_status']) ??
+        _formatStatus(status);
+    final label =
+        _readNullableString(json['label']) ??
+        _readNullableString(json['salesLabel'] ?? json['sales_label']) ??
+        displayStatus;
+
+    return MessageSalesLink(
+      id: (json['id'] ?? '').toString(),
+      sourceMessageId: _readNullableString(
+        json['sourceMessageId'] ?? json['source_message_id'],
+      ),
+      conversationId: _readNullableString(
+        json['conversationId'] ?? json['conversation_id'],
+      ),
+      contactId: _readNullableString(json['contactId'] ?? json['contact_id']),
+      status: status,
+      displayStatus: displayStatus,
+      label: label,
+    );
+  }
+
+  final String id;
+  final String? sourceMessageId;
+  final String? conversationId;
+  final String? contactId;
+  final String status;
+  final String displayStatus;
+  final String label;
+
+  static String? _readNullableString(Object? value) {
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+    return null;
+  }
+
+  static String _formatStatus(String status) {
+    return status
+        .trim()
+        .split('_')
+        .where((part) => part.isNotEmpty)
+        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+        .join(' ');
+  }
 }
 
 class MessagePaginationCursor {
@@ -448,6 +618,10 @@ class InboxConversationPatch {
     this.avatarUrl,
     this.leadStatus,
     this.tag,
+    this.hasSales,
+    this.salesId,
+    this.salesStatus,
+    this.salesLabel,
   });
 
   factory InboxConversationPatch.fromJson(Map<String, dynamic> json) {
@@ -478,6 +652,12 @@ class InboxConversationPatch {
         json['leadStatus'] ?? json['lead_status'],
       ),
       tag: _readNullableString(json['tag']),
+      hasSales: _readNullableBool(json['hasSales'] ?? json['has_sales']),
+      salesId: _readNullableString(json['salesId'] ?? json['sales_id']),
+      salesStatus: _readNullableString(
+        json['salesStatus'] ?? json['sales_status'],
+      ),
+      salesLabel: _readNullableString(json['salesLabel'] ?? json['sales_label']),
     );
   }
 
@@ -493,6 +673,10 @@ class InboxConversationPatch {
   final String? avatarUrl;
   final String? leadStatus;
   final String? tag;
+  final bool? hasSales;
+  final String? salesId;
+  final String? salesStatus;
+  final String? salesLabel;
 
   bool get canInsert =>
       id.isNotEmpty &&
@@ -514,6 +698,10 @@ class InboxConversationPatch {
       avatarUrl: avatarUrl,
       leadStatus: leadStatus,
       tag: tag,
+      hasSales: hasSales ?? false,
+      salesId: salesId,
+      salesStatus: salesStatus,
+      salesLabel: salesLabel,
     );
   }
 
@@ -530,6 +718,10 @@ class InboxConversationPatch {
       avatarUrl: avatarUrl,
       leadStatus: leadStatus,
       tag: tag,
+      hasSales: hasSales,
+      salesId: salesId,
+      salesStatus: salesStatus,
+      salesLabel: salesLabel,
     );
   }
 
@@ -542,6 +734,24 @@ class InboxConversationPatch {
     if (value is int) return value;
     if (value is num) return value.toInt();
     if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  static bool? _readNullableBool(Object? value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      switch (value.trim().toLowerCase()) {
+        case 'true':
+        case '1':
+        case 'yes':
+          return true;
+        case 'false':
+        case '0':
+        case 'no':
+          return false;
+      }
+    }
     return null;
   }
 
@@ -1039,6 +1249,8 @@ class InboxService {
   _conversationCache = {};
   static final Map<String, ServiceCacheEntry<List<WhatsAppSource>>>
   _whatsappSourceCache = {};
+  static final Map<String, MessageSalesLink> _messageSalesOverrides = {};
+  static final Map<String, _LocalSalesSummary> _conversationSalesOverrides = {};
 
   final AuthService authService;
 
@@ -1202,6 +1414,7 @@ class InboxService {
     final conversations = data
         .whereType<Map<String, dynamic>>()
         .map(InboxConversation.fromJson)
+        .map(_applyConversationSalesOverride)
         .where((conversation) => conversation.id.isNotEmpty)
         .toList()
       ..sort(InboxConversation.compareByLatestMessageDesc);
@@ -1365,6 +1578,7 @@ class InboxService {
     final messages = data
         .whereType<Map<String, dynamic>>()
         .map(InboxMessage.fromJson)
+      .map(_applyMessageSalesOverride)
         .where((message) => message.id.isNotEmpty)
         .toList();
     return InboxMessagePage(
@@ -1380,6 +1594,7 @@ class InboxService {
   Future<InboxMessage> sendMessage({
     required InboxConversation conversation,
     required String text,
+    String? replyToMessageId,
   }) async {
     final whatsappAccountId = conversation.whatsappAccountId;
     if (whatsappAccountId == null || whatsappAccountId.isEmpty) {
@@ -1394,6 +1609,8 @@ class InboxService {
       'whatsappAccountId': whatsappAccountId,
       'conversationId': conversation.id,
       'text': text,
+      if (replyToMessageId != null && replyToMessageId.trim().isNotEmpty)
+        'replyToMessageId': replyToMessageId.trim(),
       if (organizationId != null && organizationId.isNotEmpty)
         'organizationId': organizationId,
     };
@@ -1416,6 +1633,78 @@ class InboxService {
     final message = InboxMessage.fromJson(data);
     _conversationCache.clear();
     return message;
+  }
+
+  Future<void> forwardMessage({
+    required String messageId,
+    required String targetConversationId,
+  }) async {
+    final payload = <String, dynamic>{
+      'targetConversationId': targetConversationId,
+    };
+
+    final response = await authService.authenticatedPost(
+      AppConfig.apiUri('/mobile/v1/messages/$messageId/forward'),
+      body: jsonEncode(payload),
+    );
+    final decoded = _decodeObject(response.body);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw InboxServiceException(
+        _extractError(decoded),
+        code: _extractErrorCode(decoded),
+      );
+    }
+
+    _conversationCache.clear();
+  }
+
+  Future<MessageSalesLink> createSalesFromMessage({
+    required String messageId,
+    String status = 'new_lead',
+    String? notes,
+  }) async {
+    final payload = <String, dynamic>{
+      'status': status,
+      if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+    };
+
+    final response = await authService.authenticatedPost(
+      AppConfig.apiUri('/mobile/v1/messages/$messageId/create-sales'),
+      body: jsonEncode(payload),
+    );
+    final decoded = _decodeObject(response.body);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw InboxServiceException(
+        _extractError(decoded),
+        code: _extractErrorCode(decoded),
+      );
+    }
+
+    final data = decoded['data'];
+    if (data is! Map<String, dynamic>) {
+      throw const InboxServiceException(
+        'Sales creation response was not recognized.',
+      );
+    }
+
+    _conversationCache.clear();
+    return MessageSalesLink.fromJson(data);
+  }
+
+  void cacheSalesMetadata({
+    required String messageId,
+    required String conversationId,
+    required MessageSalesLink salesLink,
+  }) {
+    _messageSalesOverrides[messageId] = salesLink;
+    _conversationSalesOverrides[conversationId] = _LocalSalesSummary(
+      salesId: salesLink.id,
+      salesStatus: salesLink.status,
+      salesLabel: salesLink.label,
+    );
+    _conversationCache.clear();
   }
 
   Future<AiInboxAssistResult> requestAiAssist({
@@ -1560,6 +1849,30 @@ class InboxService {
     return Duration(seconds: nextSeconds > 30 ? 30 : nextSeconds);
   }
 
+  InboxConversation _applyConversationSalesOverride(
+    InboxConversation conversation,
+  ) {
+    final override = _conversationSalesOverrides[conversation.id];
+    if (override == null) return conversation;
+    return conversation.copyWith(
+      hasSales: true,
+      salesId: override.salesId,
+      salesStatus: override.salesStatus,
+      salesLabel: override.salesLabel,
+    );
+  }
+
+  InboxMessage _applyMessageSalesOverride(InboxMessage message) {
+    final override = _messageSalesOverrides[message.id];
+    if (override == null) return message;
+    return message.copyWith(
+      hasSales: true,
+      salesId: override.id,
+      salesStatus: override.status,
+      salesLabel: override.label,
+    );
+  }
+
   Future<void> _waitBeforeReconnect(
     StreamController<InboxUpdateEvent> controller,
     Duration delay,
@@ -1609,6 +1922,18 @@ class InboxUpdateEvent {
   final bool shouldRefetch;
   final InboxConversationPatch? conversationPatch;
   final InboxMessagePatch? messagePatch;
+}
+
+class _LocalSalesSummary {
+  const _LocalSalesSummary({
+    required this.salesId,
+    required this.salesStatus,
+    required this.salesLabel,
+  });
+
+  final String salesId;
+  final String salesStatus;
+  final String salesLabel;
 }
 
 class InboxServiceException implements Exception {

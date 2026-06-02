@@ -17,6 +17,13 @@ if "%REZEKI_GOOGLE_SERVER_CLIENT_ID%"=="" (
   exit /b 1
 )
 
+if /I "%REZEKI_GOOGLE_SERVER_CLIENT_ID%"=="YOUR_WEB_CLIENT_ID.apps.googleusercontent.com" (
+  echo REZEKI_GOOGLE_SERVER_CLIENT_ID is still the placeholder value.
+  echo Set it to the real Google Web OAuth client ID in run_config.local.bat.
+  echo.
+  exit /b 1
+)
+
 echo Running Rezeki Dashboard...
 echo API: %REZEKI_API_BASE_URL%
 echo Device: %REZEKI_DEVICE_ID%
