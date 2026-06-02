@@ -27,11 +27,15 @@ class CrmContact {
       json['display_name'] ?? json['displayName'],
     );
     final name = _firstString([
+      json['name'],
       displayName,
       json['primary_phone_e164'],
       json['primary_phone_normalized'],
+      json['phone'],
     ]);
     final phone = _firstString([
+      json['phone'],
+      json['phoneNumber'],
       json['primary_phone_e164'],
       json['primary_phone_normalized'],
       json['primaryPhoneE164'],

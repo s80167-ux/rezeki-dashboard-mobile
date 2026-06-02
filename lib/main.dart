@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'config/app_config.dart';
+import 'config/app_version.dart';
 import 'services/auth_service.dart';
 import 'services/contacts_service.dart';
 import 'services/inbox_service.dart';
@@ -210,169 +211,170 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     const SizedBox(height: 48),
-            // Logo
-            Container(
-              width: 220,
-              height: 120,
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(RezekiRadii.card),
-                border: Border.all(
-                  color: AppColors.border.withValues(alpha: 0.6),
-                ),
-                boxShadow: RezekiTheme.softShadow,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(RezekiRadii.card),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Image.asset(
-                    'assets/logo.png',
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Center(
-                        child: Icon(
-                          Icons.broken_image_outlined,
-                          color: AppColors.textTertiary,
-                          size: 48,
+                    // Logo
+                    Container(
+                      width: 220,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(RezekiRadii.card),
+                        border: Border.all(
+                          color: AppColors.border.withValues(alpha: 0.6),
                         ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-            // Title
-            Text(
-              'Rezeki Dashboard',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineLarge?.copyWith(color: AppColors.primaryDark),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            // Tagline
-            Text(
-              'Kempen Digital untuk PMKS',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 40),
-            // Email field
-            TextField(
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-              enabled: !_isLoading,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                hintText: 'you@company.com',
-                prefixIcon: Icon(Icons.email_outlined),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Password field
-            TextField(
-              controller: _passwordController,
-              obscureText: _obscurePassword,
-              textInputAction: TextInputAction.done,
-              enabled: !_isLoading,
-              onSubmitted: (_) => _signInWithEmail(),
-              decoration: InputDecoration(
-                labelText: 'Password',
-                hintText: '********',
-                prefixIcon: const Icon(Icons.lock_outline),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    color: AppColors.textTertiary,
-                  ),
-                  onPressed: _isLoading
-                      ? null
-                      : () {
-                          setState(() => _obscurePassword = !_obscurePassword);
-                        },
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            // Error message
-            if (_errorMessage != null)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(
-                  _errorMessage!,
-                  style: const TextStyle(
-                    color: AppColors.error,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            const SizedBox(height: 16),
-            // Login button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _signInWithEmail,
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: Colors.white,
+                        boxShadow: RezekiTheme.softShadow,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(RezekiRadii.card),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Image.asset(
+                            'assets/logo.png',
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Center(
+                                child: Icon(
+                                  Icons.broken_image_outlined,
+                                  color: AppColors.textTertiary,
+                                  size: 48,
+                                ),
+                              );
+                            },
+                          ),
                         ),
-                      )
-                    : const Text('Login'),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Divider
-            Row(
-              children: [
-                const Expanded(child: Divider(color: AppColors.border)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    'or',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textTertiary,
-                      fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 32),
+                    // Title
+                    Text(
+                      'Rezeki Dashboard',
+                      style: Theme.of(context).textTheme.headlineLarge
+                          ?.copyWith(color: AppColors.primaryDark),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    // Tagline
+                    Text(
+                      'Kempen Digital untuk PMKS',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 40),
+                    // Email field
+                    TextField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                      enabled: !_isLoading,
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        hintText: 'you@company.com',
+                        prefixIcon: Icon(Icons.email_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Password field
+                    TextField(
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      textInputAction: TextInputAction.done,
+                      enabled: !_isLoading,
+                      onSubmitted: (_) => _signInWithEmail(),
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        hintText: '********',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            color: AppColors.textTertiary,
+                          ),
+                          onPressed: _isLoading
+                              ? null
+                              : () {
+                                  setState(
+                                    () => _obscurePassword = !_obscurePassword,
+                                  );
+                                },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Error message
+                    if (_errorMessage != null)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(
+                            color: AppColors.error,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    // Login button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _signInWithEmail,
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text('Login'),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Divider
+                    Row(
+                      children: [
+                        const Expanded(child: Divider(color: AppColors.border)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            'or',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textTertiary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        const Expanded(child: Divider(color: AppColors.border)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Google Sign-In button
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _isLoading ? null : _signInWithGoogle,
+                        icon: _GoogleIcon(),
+                        label: const Text('Sign in with Google'),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
                 ),
-                const Expanded(child: Divider(color: AppColors.border)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // Google Sign-In button
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _isLoading ? null : _signInWithGoogle,
-                icon: _GoogleIcon(),
-                label: const Text('Sign in with Google'),
               ),
             ),
-            const SizedBox(height: 24),
-          ],
-        ),
+          );
+        },
       ),
-    ),
-  );
-  },
-),
-);
+    );
   }
 }
 
@@ -1302,12 +1304,15 @@ class MorePage extends StatelessWidget {
     ).showSnackBar(const SnackBar(content: Text('Coming soon.')));
   }
 
-  Future<void> _showAboutDialog(BuildContext context) {
+  Future<void> _showAboutDialog(BuildContext context) async {
+    final releaseLabel = await AppVersion.releaseLabel();
+    if (!context.mounted) return;
+
     return showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Rezeki Dashboard Mobile'),
-        content: const Text('CRM for PMKS\nVersion placeholder'),
+        title: const Text('Rezeki Dashboard'),
+        content: Text('Kempen Digital Untuk PMKS\n$releaseLabel'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -1707,6 +1712,11 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
     ('interested', 'Interested'),
     ('processing', 'Processing'),
   ];
+  static const _salesOrderStatusOptions = [
+    ('open', 'Open'),
+    ('closed_won', 'Closed Won'),
+    ('closed_lost', 'Closed Lost'),
+  ];
   final InboxService _inboxService = InboxService(
     authService: AuthService.instance,
   );
@@ -1717,6 +1727,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
   static const int _initialMessagePageSize = 15;
   static const int _olderMessagePageSize = 5;
   final TextEditingController _composerController = TextEditingController();
+  late InboxConversation _conversation;
   late Future<List<InboxMessage>> _messagesFuture;
   StreamSubscription<InboxUpdateEvent>? _inboxEventsSubscription;
   Timer? _messageRefreshDebounce;
@@ -1724,6 +1735,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
   MessagePagination? _messagesPagination;
   bool _isPollingMessages = false;
   bool _isLoadingOlderMessages = false;
+  bool _isRefreshingConversation = false;
   bool _isSending = false;
   bool _isAiThinking = false;
   bool _isCheckingAiAvailability = true;
@@ -1740,8 +1752,10 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
   @override
   void initState() {
     super.initState();
+    _conversation = widget.conversation;
     _inboxService.clearInboxCaches();
     _messagesFuture = _loadLatestMessages();
+    unawaited(_refreshConversationSnapshot());
     _composerController.addListener(_handleComposerChanged);
     _loadAiAssistAvailability();
     _loadQuickReplies();
@@ -1777,10 +1791,11 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
     final future = _loadLatestMessages();
     setState(() => _messagesFuture = future);
     await future;
+    await _refreshConversationSnapshot();
   }
 
   void _handleInboxEvent(InboxUpdateEvent event) {
-    if (event.conversationId != widget.conversation.id) {
+    if (event.conversationId != _conversation.id) {
       return;
     }
 
@@ -1800,6 +1815,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
     _isPollingMessages = true;
     try {
       final messages = await _loadLatestMessages();
+      await _refreshConversationSnapshot();
       if (!mounted) return;
       setState(() => _messagesFuture = Future.value(messages));
     } catch (_) {
@@ -1813,7 +1829,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
     bool mergeExisting = false,
   }) async {
     final page = await _inboxService.fetchMessagesPage(
-      widget.conversation.id,
+      _conversation.id,
       days: _activityDays,
       limit: _initialMessagePageSize,
     );
@@ -1832,6 +1848,31 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
     return messages;
   }
 
+  Future<void> _refreshConversationSnapshot() async {
+    if (_isRefreshingConversation) return;
+    _isRefreshingConversation = true;
+    try {
+      final conversations = await _inboxService.fetchConversations(
+        days: _activityDays,
+        forceRefresh: true,
+      );
+      InboxConversation? updated;
+      for (final conversation in conversations) {
+        if (conversation.id == _conversation.id) {
+          updated = conversation;
+          break;
+        }
+      }
+      if (!mounted || updated == null) return;
+      final refreshedConversation = updated;
+      setState(() => _conversation = refreshedConversation);
+    } catch (_) {
+      // Keep the current conversation header if a background refresh fails.
+    } finally {
+      _isRefreshingConversation = false;
+    }
+  }
+
   Future<void> _loadOlderMessages() async {
     final nextBefore = _messagesPagination?.nextBefore;
     if (_isLoadingOlderMessages ||
@@ -1843,7 +1884,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
     setState(() => _isLoadingOlderMessages = true);
     try {
       final page = await _inboxService.fetchMessagesPage(
-        widget.conversation.id,
+        _conversation.id,
         days: _activityDays,
         limit: _olderMessagePageSize,
         before: nextBefore,
@@ -1923,11 +1964,8 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
         child: SafeArea(
           child: Column(
             children: [
-              _ThreadHeader(conversation: widget.conversation),
-              _ThreadCrmContext(
-                conversation: widget.conversation,
-                onAction: _showComingSoon,
-              ),
+              _ThreadHeader(conversation: _conversation),
+              _ThreadCrmContext(conversation: _conversation),
               Expanded(
                 child: FutureBuilder<List<InboxMessage>>(
                   future: _messagesFuture,
@@ -1993,7 +2031,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
               ),
               _MessageComposer(
                 controller: _composerController,
-                enabled: widget.conversation.whatsappAccountId != null,
+                enabled: _conversation.whatsappAccountId != null,
                 isSending: _isSending,
                 isAiThinking: _isAiThinking,
                 isCheckingAiAvailability: _isCheckingAiAvailability,
@@ -2002,8 +2040,8 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
                 errorMessage: _sendError,
                 aiErrorMessage: _aiError,
                 replyLabel: _replyDraft == null
-                  ? null
-                  : _replyLabelForMessage(_replyDraft!),
+                    ? null
+                    : _replyLabelForMessage(_replyDraft!),
                 replyPreviewText: _replyDraft?.contentText,
                 onClearReply: _replyDraft == null ? null : _clearReplyDraft,
                 onSend: _sendMessage,
@@ -2038,7 +2076,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
 
     try {
       await _inboxService.sendMessage(
-        conversation: widget.conversation,
+        conversation: _conversation,
         text: text,
         replyToMessageId: replyToMessageId,
       );
@@ -2184,7 +2222,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
       _quickRepliesService
           .recordUsage(
             templateId: selected.id,
-            conversationId: widget.conversation.id,
+            conversationId: _conversation.id,
           )
           .catchError((_) {}),
     );
@@ -2207,7 +2245,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
 
     try {
       final result = await _inboxService.requestAiAssist(
-        conversationId: widget.conversation.id,
+        conversationId: _conversation.id,
         action: action,
         draft: draft.isEmpty ? null : draft,
         tone: action == 'rewrite_draft' ? 'friendly' : 'concise',
@@ -2243,7 +2281,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
 
   String _replyLabelForMessage(InboxMessage message) {
     if (message.isOutgoing) return 'You';
-    return widget.conversation.contactName;
+    return _conversation.contactName;
   }
 
   void _clearReplyDraft() {
@@ -2264,12 +2302,14 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
               ListTile(
                 leading: const Icon(Icons.reply_outlined),
                 title: const Text('Reply'),
-                onTap: () => Navigator.of(context).pop(_ThreadMessageAction.reply),
+                onTap: () =>
+                    Navigator.of(context).pop(_ThreadMessageAction.reply),
               ),
               ListTile(
                 leading: const Icon(Icons.forward_outlined),
                 title: const Text('Forward'),
-                onTap: () => Navigator.of(context).pop(_ThreadMessageAction.forward),
+                onTap: () =>
+                    Navigator.of(context).pop(_ThreadMessageAction.forward),
               ),
               ListTile(
                 leading: Icon(
@@ -2291,7 +2331,8 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
                 ListTile(
                   leading: const Icon(Icons.copy_all_outlined),
                   title: const Text('Copy text'),
-                  onTap: () => Navigator.of(context).pop(_ThreadMessageAction.copy),
+                  onTap: () =>
+                      Navigator.of(context).pop(_ThreadMessageAction.copy),
                 ),
             ],
           ),
@@ -2338,7 +2379,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
         forceRefresh: true,
       );
       final targets = conversations
-          .where((item) => item.id != widget.conversation.id)
+          .where((item) => item.id != _conversation.id)
           .toList();
 
       if (!mounted) return;
@@ -2434,103 +2475,32 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
       return;
     }
 
-    final selectedStatus = await showModalBottomSheet<String>(
+    final salesInput = await showModalBottomSheet<CreateMessageSalesInput>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (context) {
-        var status = _salesStatusOptions.first.$1;
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Create Sales',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      widget.conversation.contactName,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.muted,
-                        borderRadius: BorderRadius.circular(RezekiRadii.input),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Text(
-                        message.contentText,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: status,
-                      decoration: const InputDecoration(
-                        labelText: 'Sales status',
-                        prefixIcon: Icon(Icons.work_outline),
-                      ),
-                      items: _salesStatusOptions
-                          .map(
-                            (option) => DropdownMenuItem(
-                              value: option.$1,
-                              child: Text(option.$2),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setModalState(() => status = value);
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () => Navigator.of(context).pop(status),
-                        icon: const Icon(Icons.business_center_outlined),
-                        label: const Text('Create Sales'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+      builder: (context) => _CreateMessageSalesSheet(
+        customerName: _conversation.contactName,
+        messagePreview: message.contentText,
+        statusOptions: _salesOrderStatusOptions,
+      ),
     );
 
-    if (selectedStatus == null || !mounted) return;
+    if (salesInput == null || !mounted) return;
 
     setState(() => _isCreatingSales = true);
     try {
       final salesLink = await _inboxService.createSalesFromMessage(
         messageId: message.id,
-        status: selectedStatus,
+        conversationId: _conversation.id,
+        contactId: _conversation.contactId,
+        input: salesInput,
       );
       if (!mounted) return;
 
       _inboxService.cacheSalesMetadata(
         messageId: message.id,
-        conversationId: widget.conversation.id,
+        conversationId: _conversation.id,
         salesLink: salesLink,
       );
 
@@ -2548,6 +2518,12 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
           .toList();
 
       setState(() {
+        _conversation = _conversation.copyWith(
+          hasSales: true,
+          salesId: salesLink.id,
+          salesStatus: salesLink.status,
+          salesLabel: salesLink.label,
+        );
         _messages = updatedMessages;
         _messagesFuture = Future.value(updatedMessages);
       });
@@ -2577,12 +2553,15 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
     if (salesId == null || salesId.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sales are already linked to this message.')),
+        const SnackBar(
+          content: Text('Sales are already linked to this message.'),
+        ),
       );
       return;
     }
 
-    final displayStatus = message.salesLabel ??
+    final displayStatus =
+        message.salesLabel ??
         message.salesStatus ??
         _salesStatusOptions.first.$2;
 
@@ -2591,21 +2570,15 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
         builder: (context) => LeadDetailPage(
           lead: SalesLead(
             id: salesId,
-            contactId: widget.conversation.contactId ?? '',
+            contactId: _conversation.contactId ?? '',
             status: message.salesStatus ?? 'new_lead',
             displayStatus: _normalizeStatus(displayStatus),
-            name: widget.conversation.contactName,
+            name: _conversation.contactName,
             phone: 'No phone',
           ),
         ),
       ),
     );
-  }
-
-  void _showComingSoon() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Coming soon.')));
   }
 
   void _scheduleStatusRefreshes() {
@@ -3760,7 +3733,8 @@ class _LeadCard extends StatelessWidget {
     final tag =
         lead.source ?? contact?.companyName ?? lead.temperatureLabel ?? 'Lead';
     final displayName = contact?.name ?? lead.name;
-    final phone = contact?.phone ?? lead.phone;
+    final phone =
+        _usablePhone(contact?.phone) ?? _usablePhone(lead.phone) ?? 'No phone';
 
     return Card(
       child: InkWell(
@@ -3821,6 +3795,12 @@ class _LeadCard extends StatelessWidget {
       ),
     );
   }
+
+  String? _usablePhone(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    return trimmed.toLowerCase() == 'no phone' ? null : trimmed;
+  }
 }
 
 class _SalesPlaceholderSection extends StatelessWidget {
@@ -3879,9 +3859,7 @@ class _MoreMenuTile extends StatelessWidget {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: destructive
-              ? AppColors.errorLight
-              : AppColors.secondary,
+          color: destructive ? AppColors.errorLight : AppColors.secondary,
           borderRadius: BorderRadius.circular(RezekiRadii.sm),
         ),
         child: Icon(icon, color: color, size: 20),
@@ -4243,11 +4221,7 @@ class _PageStateMessage extends StatelessWidget {
                 color: AppColors.muted,
                 borderRadius: BorderRadius.circular(RezekiRadii.card),
               ),
-              child: Icon(
-                icon,
-                color: AppColors.textTertiary,
-                size: 32,
-              ),
+              child: Icon(icon, color: AppColors.textTertiary, size: 32),
             ),
             const SizedBox(height: 16),
             Text(
@@ -4276,6 +4250,384 @@ class _PageStateMessage extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _CreateMessageSalesSheet extends StatefulWidget {
+  const _CreateMessageSalesSheet({
+    required this.customerName,
+    required this.messagePreview,
+    required this.statusOptions,
+  });
+
+  final String customerName;
+  final String messagePreview;
+  final List<(String, String)> statusOptions;
+
+  @override
+  State<_CreateMessageSalesSheet> createState() =>
+      _CreateMessageSalesSheetState();
+}
+
+class _CreateMessageSalesSheetState extends State<_CreateMessageSalesSheet> {
+  late String _status;
+  bool _showAdvanced = false;
+  String? _error;
+  final TextEditingController _currencyController = TextEditingController(
+    text: 'MYR',
+  );
+  final TextEditingController _productTypeController = TextEditingController();
+  final TextEditingController _packageNameController = TextEditingController();
+  final TextEditingController _unitPriceController = TextEditingController();
+  final TextEditingController _quantityController = TextEditingController(
+    text: '1',
+  );
+  final TextEditingController _premiseAddressController =
+      TextEditingController();
+  final TextEditingController _businessTypeController = TextEditingController();
+  final TextEditingController _contactPersonController =
+      TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _expectedCloseDateController =
+      TextEditingController();
+  final TextEditingController _coverageStatusController =
+      TextEditingController();
+  final TextEditingController _documentStatusController =
+      TextEditingController();
+  final TextEditingController _notesController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _status = widget.statusOptions.first.$1;
+  }
+
+  @override
+  void dispose() {
+    _currencyController.dispose();
+    _productTypeController.dispose();
+    _packageNameController.dispose();
+    _unitPriceController.dispose();
+    _quantityController.dispose();
+    _premiseAddressController.dispose();
+    _businessTypeController.dispose();
+    _contactPersonController.dispose();
+    _emailController.dispose();
+    _expectedCloseDateController.dispose();
+    _coverageStatusController.dispose();
+    _documentStatusController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          0,
+          16,
+          MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Create Sales', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            const Text(
+              'Create the sales order and first item line.',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Customer: ${widget.customerName}',
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.muted,
+                borderRadius: BorderRadius.circular(RezekiRadii.input),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Text(
+                widget.messagePreview,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  height: 1.35,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _status,
+              decoration: const InputDecoration(
+                labelText: 'Status',
+                prefixIcon: Icon(Icons.work_outline),
+              ),
+              items: widget.statusOptions
+                  .map(
+                    (option) => DropdownMenuItem(
+                      value: option.$1,
+                      child: Text(option.$2),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _status = value);
+              },
+            ),
+            const SizedBox(height: 12),
+            _textField(
+              label: 'Currency',
+              controller: _currencyController,
+              icon: Icons.payments_outlined,
+              refreshOnChange: true,
+            ),
+            const SizedBox(height: 12),
+            _textField(
+              label: 'Product Type',
+              controller: _productTypeController,
+              hint: 'Fixed, Mobile, Solution',
+              icon: Icons.category_outlined,
+            ),
+            const SizedBox(height: 12),
+            _textField(
+              label: 'Package Name',
+              controller: _packageNameController,
+              hint: 'Unifi Biz 100Mbps',
+              icon: Icons.inventory_2_outlined,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _unitPriceController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(
+                      labelText: 'Unit Price',
+                      hintText: '111',
+                      prefixIcon: Icon(Icons.attach_money_outlined),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _quantityController,
+                    keyboardType: TextInputType.number,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(
+                      labelText: 'Quantity',
+                      prefixIcon: Icon(Icons.numbers_outlined),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.muted,
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Text(
+                'Estimated total: ${_currencyLabel()} ${_estimatedTotal().toStringAsFixed(2)}',
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => setState(() => _showAdvanced = !_showAdvanced),
+              icon: Icon(
+                _showAdvanced
+                    ? Icons.expand_less_outlined
+                    : Icons.expand_more_outlined,
+              ),
+              label: Text(
+                _showAdvanced
+                    ? 'Hide advanced details'
+                    : 'Show advanced details',
+              ),
+            ),
+            if (_showAdvanced) ...[
+              _textField(
+                label: 'Premise Address',
+                controller: _premiseAddressController,
+                minLines: 3,
+                maxLines: 4,
+                icon: Icons.location_on_outlined,
+              ),
+              const SizedBox(height: 12),
+              _textField(
+                label: 'Business Type',
+                controller: _businessTypeController,
+                icon: Icons.storefront_outlined,
+              ),
+              const SizedBox(height: 12),
+              _textField(
+                label: 'Contact Person',
+                controller: _contactPersonController,
+                icon: Icons.person_outline,
+              ),
+              const SizedBox(height: 12),
+              _textField(
+                label: 'Email',
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                icon: Icons.email_outlined,
+              ),
+              const SizedBox(height: 12),
+              _textField(
+                label: 'Expected Close Date',
+                controller: _expectedCloseDateController,
+                hint: 'yyyy-mm-dd',
+                keyboardType: TextInputType.datetime,
+                icon: Icons.event_outlined,
+              ),
+              const SizedBox(height: 12),
+              _textField(
+                label: 'Coverage Status',
+                controller: _coverageStatusController,
+                hint: 'pending, checked, available',
+                icon: Icons.fact_check_outlined,
+              ),
+              const SizedBox(height: 12),
+              _textField(
+                label: 'Document Status',
+                controller: _documentStatusController,
+                hint: 'not_started, pending, completed',
+                icon: Icons.description_outlined,
+              ),
+              const SizedBox(height: 12),
+              _textField(
+                label: 'Notes',
+                controller: _notesController,
+                minLines: 3,
+                maxLines: 4,
+                icon: Icons.notes_outlined,
+              ),
+            ],
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: const TextStyle(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _submit,
+                icon: const Icon(Icons.business_center_outlined),
+                label: const Text('Create Sales'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _textField({
+    required String label,
+    required TextEditingController controller,
+    String? hint,
+    TextInputType? keyboardType,
+    int minLines = 1,
+    int maxLines = 1,
+    IconData? icon,
+    bool refreshOnChange = false,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      minLines: minLines,
+      maxLines: maxLines,
+      onChanged: refreshOnChange ? (_) => setState(() {}) : null,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: icon == null ? null : Icon(icon),
+      ),
+    );
+  }
+
+  void _submit() {
+    final unitPrice = double.tryParse(_unitPriceController.text.trim());
+    final quantity = int.tryParse(_quantityController.text.trim());
+
+    if (unitPrice == null || !unitPrice.isFinite || unitPrice < 0) {
+      setState(() {
+        _error = 'Unit price must be a valid non-negative number.';
+      });
+      return;
+    }
+
+    if (quantity == null || quantity <= 0) {
+      setState(() {
+        _error = 'Quantity must be a whole number greater than 0.';
+      });
+      return;
+    }
+
+    Navigator.of(context).pop(
+      CreateMessageSalesInput(
+        status: _status,
+        currency: _currencyLabel(),
+        productType: _blankToNull(_productTypeController.text),
+        packageName: _blankToNull(_packageNameController.text),
+        unitPrice: unitPrice,
+        quantity: quantity,
+        premiseAddress: _blankToNull(_premiseAddressController.text),
+        businessType: _blankToNull(_businessTypeController.text),
+        contactPerson: _blankToNull(_contactPersonController.text),
+        emailAddress: _blankToNull(_emailController.text),
+        expectedCloseDate: _blankToNull(_expectedCloseDateController.text),
+        coverageStatus: _blankToNull(_coverageStatusController.text),
+        documentStatus: _blankToNull(_documentStatusController.text),
+        notes: _blankToNull(_notesController.text),
+      ),
+    );
+  }
+
+  double _estimatedTotal() {
+    final unitPrice = double.tryParse(_unitPriceController.text.trim()) ?? 0;
+    final quantity = int.tryParse(_quantityController.text.trim()) ?? 0;
+    if (!unitPrice.isFinite || quantity <= 0) return 0;
+    return unitPrice * quantity;
+  }
+
+  String _currencyLabel() {
+    final value = _currencyController.text.trim();
+    return value.isEmpty ? 'MYR' : value;
+  }
+
+  String? _blankToNull(String value) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 }
 
@@ -4353,10 +4705,9 @@ class _ThreadHeader extends StatelessWidget {
 }
 
 class _ThreadCrmContext extends StatelessWidget {
-  const _ThreadCrmContext({required this.conversation, required this.onAction});
+  const _ThreadCrmContext({required this.conversation});
 
   final InboxConversation conversation;
-  final VoidCallback onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -4384,60 +4735,7 @@ class _ThreadCrmContext extends StatelessWidget {
               if (!hasContext) const _TagChip(label: 'CRM status not set'),
             ],
           ),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _CrmActionButton(
-                  icon: Icons.edit_note_outlined,
-                  label: 'Update Status',
-                  onPressed: onAction,
-                ),
-                const SizedBox(width: 8),
-                _CrmActionButton(
-                  icon: Icons.label_outline,
-                  label: 'Add Tag',
-                  onPressed: onAction,
-                ),
-                const SizedBox(width: 8),
-                _CrmActionButton(
-                  icon: Icons.today_outlined,
-                  label: 'Set Follow-up',
-                  onPressed: onAction,
-                ),
-              ],
-            ),
-          ),
         ],
-      ),
-    );
-  }
-}
-
-class _CrmActionButton extends StatelessWidget {
-  const _CrmActionButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 16),
-      label: Text(label),
-      style: OutlinedButton.styleFrom(
-        visualDensity: VisualDensity.compact,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(RezekiRadii.sm),
-        ),
       ),
     );
   }
@@ -4511,18 +4809,18 @@ class _MessageBubble extends StatelessWidget {
     final borderRadius = isSystem
         ? BorderRadius.circular(RezekiRadii.input)
         : isOutgoing
-            ? const BorderRadius.only(
-                topLeft: Radius.circular(RezekiRadii.input),
-                topRight: Radius.circular(RezekiRadii.input),
-                bottomLeft: Radius.circular(RezekiRadii.input),
-                bottomRight: Radius.circular(4),
-              )
-            : const BorderRadius.only(
-                topLeft: Radius.circular(RezekiRadii.input),
-                topRight: Radius.circular(RezekiRadii.input),
-                bottomLeft: Radius.circular(4),
-                bottomRight: Radius.circular(RezekiRadii.input),
-              );
+        ? const BorderRadius.only(
+            topLeft: Radius.circular(RezekiRadii.input),
+            topRight: Radius.circular(RezekiRadii.input),
+            bottomLeft: Radius.circular(RezekiRadii.input),
+            bottomRight: Radius.circular(4),
+          )
+        : const BorderRadius.only(
+            topLeft: Radius.circular(RezekiRadii.input),
+            topRight: Radius.circular(RezekiRadii.input),
+            bottomLeft: Radius.circular(4),
+            bottomRight: Radius.circular(RezekiRadii.input),
+          );
 
     final bubble = Container(
       constraints: BoxConstraints(
@@ -4544,7 +4842,8 @@ class _MessageBubble extends StatelessWidget {
             : CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (message.replyPreviewText != null && message.replyPreviewText!.isNotEmpty) ...[
+          if (message.replyPreviewText != null &&
+              message.replyPreviewText!.isNotEmpty) ...[
             _ReplySnippet(
               text: message.replyPreviewText!,
               isOutgoing: isOutgoing,
@@ -4569,7 +4868,8 @@ class _MessageBubble extends StatelessWidget {
           if (message.hasSales) ...[
             const SizedBox(height: 8),
             _SalesIndicatorChip(
-              label: message.salesLabel ??
+              label:
+                  message.salesLabel ??
                   _normalizeStatus(message.salesStatus ?? 'Sales'),
               status: message.salesStatus ?? message.salesLabel,
               compact: true,
@@ -4594,7 +4894,8 @@ class _MessageBubble extends StatelessWidget {
                       ),
                     ),
                   ),
-                if (isOutgoing && _MessageStatusLabel.hasVisibleStatus(message)) ...[
+                if (isOutgoing &&
+                    _MessageStatusLabel.hasVisibleStatus(message)) ...[
                   if (_messageTimestamp != null) const SizedBox(width: 8),
                   _MessageStatusLabel(message: message),
                 ],
@@ -4967,7 +5268,9 @@ class _MessageComposer extends StatelessWidget {
                       hasQuickReplies
                           ? Icons.quickreply
                           : Icons.quickreply_outlined,
-                      color: canType ? AppColors.primary : AppColors.textTertiary,
+                      color: canType
+                          ? AppColors.primary
+                          : AppColors.textTertiary,
                     ),
                   ),
                 ),
@@ -5516,11 +5819,7 @@ class _InlineNotice extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.error_outline,
-            color: AppColors.error,
-            size: 18,
-          ),
+          const Icon(Icons.error_outline, color: AppColors.error, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -5944,11 +6243,7 @@ class _SearchBar extends StatelessWidget {
         children: [
           const Padding(
             padding: EdgeInsets.only(left: 14),
-            child: Icon(
-              Icons.search,
-              color: AppColors.textTertiary,
-              size: 20,
-            ),
+            child: Icon(Icons.search, color: AppColors.textTertiary, size: 20),
           ),
           Expanded(
             child: TextField(
@@ -6074,7 +6369,8 @@ class _MessageCard extends StatelessWidget {
                           ),
                           if (hasSales)
                             _SalesIndicatorChip(
-                              label: salesLabel ??
+                              label:
+                                  salesLabel ??
                                   _normalizeStatus(salesStatus ?? 'Sales'),
                               status: salesStatus ?? salesLabel,
                               compact: true,

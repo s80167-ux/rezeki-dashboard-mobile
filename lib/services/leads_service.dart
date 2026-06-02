@@ -31,7 +31,9 @@ class SalesLead {
       fallback: 'Unknown Contact',
     );
     final phone = _readString(
-      json['primary_phone_normalized'] ??
+      json['phone'] ??
+          json['phoneNumber'] ??
+          json['primary_phone_normalized'] ??
           json['primaryPhoneNormalized'] ??
           json['primary_phone_e164'] ??
           json['primaryPhoneE164'],

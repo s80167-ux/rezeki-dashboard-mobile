@@ -7,6 +7,8 @@ import '../config/app_config.dart';
 import 'auth_service.dart';
 import 'service_cache.dart';
 
+const Object _copyUnset = Object();
+
 class InboxConversation {
   const InboxConversation({
     required this.id,
@@ -70,7 +72,9 @@ class InboxConversation {
       salesStatus: _readNullableString(
         json['sales_status'] ?? json['salesStatus'],
       ),
-      salesLabel: _readNullableString(json['sales_label'] ?? json['salesLabel']),
+      salesLabel: _readNullableString(
+        json['sales_label'] ?? json['salesLabel'],
+      ),
     );
   }
 
@@ -104,9 +108,9 @@ class InboxConversation {
     String? leadStatus,
     String? tag,
     bool? hasSales,
-    String? salesId,
-    String? salesStatus,
-    String? salesLabel,
+    Object? salesId = _copyUnset,
+    Object? salesStatus = _copyUnset,
+    Object? salesLabel = _copyUnset,
   }) {
     return InboxConversation(
       id: id,
@@ -122,9 +126,13 @@ class InboxConversation {
       leadStatus: leadStatus ?? this.leadStatus,
       tag: tag ?? this.tag,
       hasSales: hasSales ?? this.hasSales,
-      salesId: salesId ?? this.salesId,
-      salesStatus: salesStatus ?? this.salesStatus,
-      salesLabel: salesLabel ?? this.salesLabel,
+      salesId: salesId == _copyUnset ? this.salesId : salesId as String?,
+      salesStatus: salesStatus == _copyUnset
+          ? this.salesStatus
+          : salesStatus as String?,
+      salesLabel: salesLabel == _copyUnset
+          ? this.salesLabel
+          : salesLabel as String?,
     );
   }
 
@@ -305,7 +313,9 @@ class InboxMessage {
       salesStatus: _readNullableString(
         json['sales_status'] ?? json['salesStatus'],
       ),
-      salesLabel: _readNullableString(json['sales_label'] ?? json['salesLabel']),
+      salesLabel: _readNullableString(
+        json['sales_label'] ?? json['salesLabel'],
+      ),
     );
   }
 
@@ -343,9 +353,9 @@ class InboxMessage {
     String? replyToMessageId,
     String? replyPreviewText,
     bool? hasSales,
-    String? salesId,
-    String? salesStatus,
-    String? salesLabel,
+    Object? salesId = _copyUnset,
+    Object? salesStatus = _copyUnset,
+    Object? salesLabel = _copyUnset,
   }) {
     return InboxMessage(
       id: id,
@@ -361,9 +371,13 @@ class InboxMessage {
       replyToMessageId: replyToMessageId ?? this.replyToMessageId,
       replyPreviewText: replyPreviewText ?? this.replyPreviewText,
       hasSales: hasSales ?? this.hasSales,
-      salesId: salesId ?? this.salesId,
-      salesStatus: salesStatus ?? this.salesStatus,
-      salesLabel: salesLabel ?? this.salesLabel,
+      salesId: salesId == _copyUnset ? this.salesId : salesId as String?,
+      salesStatus: salesStatus == _copyUnset
+          ? this.salesStatus
+          : salesStatus as String?,
+      salesLabel: salesLabel == _copyUnset
+          ? this.salesLabel
+          : salesLabel as String?,
     );
   }
 
@@ -543,6 +557,42 @@ class MessageSalesLink {
   }
 }
 
+class CreateMessageSalesInput {
+  const CreateMessageSalesInput({
+    required this.status,
+    required this.currency,
+    required this.productType,
+    required this.packageName,
+    required this.unitPrice,
+    required this.quantity,
+    this.premiseAddress,
+    this.businessType,
+    this.contactPerson,
+    this.emailAddress,
+    this.expectedCloseDate,
+    this.coverageStatus,
+    this.documentStatus,
+    this.notes,
+  });
+
+  final String status;
+  final String currency;
+  final String? productType;
+  final String? packageName;
+  final double unitPrice;
+  final int quantity;
+  final String? premiseAddress;
+  final String? businessType;
+  final String? contactPerson;
+  final String? emailAddress;
+  final String? expectedCloseDate;
+  final String? coverageStatus;
+  final String? documentStatus;
+  final String? notes;
+
+  double get totalAmount => unitPrice * quantity;
+}
+
 class MessagePaginationCursor {
   const MessagePaginationCursor({required this.sentAt, required this.id});
 
@@ -657,7 +707,9 @@ class InboxConversationPatch {
       salesStatus: _readNullableString(
         json['salesStatus'] ?? json['sales_status'],
       ),
-      salesLabel: _readNullableString(json['salesLabel'] ?? json['sales_label']),
+      salesLabel: _readNullableString(
+        json['salesLabel'] ?? json['sales_label'],
+      ),
     );
   }
 
@@ -706,6 +758,7 @@ class InboxConversationPatch {
   }
 
   InboxConversation applyTo(InboxConversation conversation) {
+    final shouldClearSales = hasSales == false;
     return conversation.copyWith(
       contactId: contactId,
       contactName: contactName,
@@ -719,9 +772,9 @@ class InboxConversationPatch {
       leadStatus: leadStatus,
       tag: tag,
       hasSales: hasSales,
-      salesId: salesId,
-      salesStatus: salesStatus,
-      salesLabel: salesLabel,
+      salesId: shouldClearSales ? null : salesId ?? _copyUnset,
+      salesStatus: shouldClearSales ? null : salesStatus ?? _copyUnset,
+      salesLabel: shouldClearSales ? null : salesLabel ?? _copyUnset,
     );
   }
 
@@ -1411,13 +1464,15 @@ class InboxService {
       throw const InboxServiceException('Inbox response was not recognized.');
     }
 
-    final conversations = data
-        .whereType<Map<String, dynamic>>()
-        .map(InboxConversation.fromJson)
-        .map(_applyConversationSalesOverride)
-        .where((conversation) => conversation.id.isNotEmpty)
-        .toList()
-      ..sort(InboxConversation.compareByLatestMessageDesc);
+    final conversations =
+        data
+            .whereType<Map<String, dynamic>>()
+            .map(InboxConversation.fromJson)
+            .map(_reconcileConversationSalesOverride)
+            .map(_applyConversationSalesOverride)
+            .where((conversation) => conversation.id.isNotEmpty)
+            .toList()
+          ..sort(InboxConversation.compareByLatestMessageDesc);
     _conversationCache[cacheKey] = ServiceCacheEntry(
       value: conversations,
       savedAt: DateTime.now(),
@@ -1578,7 +1633,8 @@ class InboxService {
     final messages = data
         .whereType<Map<String, dynamic>>()
         .map(InboxMessage.fromJson)
-      .map(_applyMessageSalesOverride)
+        .map(_reconcileMessageSalesOverride)
+        .map(_applyMessageSalesOverride)
         .where((message) => message.id.isNotEmpty)
         .toList();
     return InboxMessagePage(
@@ -1661,16 +1717,38 @@ class InboxService {
 
   Future<MessageSalesLink> createSalesFromMessage({
     required String messageId,
-    String status = 'new_lead',
-    String? notes,
+    required String conversationId,
+    String? contactId,
+    required CreateMessageSalesInput input,
   }) async {
+    final resolvedContactId = contactId?.trim();
+    if (resolvedContactId == null || resolvedContactId.isEmpty) {
+      throw const InboxServiceException(
+        'This conversation has no contact ID for sales creation.',
+        code: 'contact_required',
+      );
+    }
+
     final payload = <String, dynamic>{
-      'status': status,
-      if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+      'contactId': resolvedContactId,
+      'status': input.status,
+      'totalAmount': input.totalAmount,
+      'currency': input.currency.trim().isEmpty ? 'MYR' : input.currency.trim(),
+      'sourceMessageId': messageId,
+      'sourceConversationId': conversationId,
+      if (input.premiseAddress != null) 'premiseAddress': input.premiseAddress,
+      if (input.businessType != null) 'businessType': input.businessType,
+      if (input.contactPerson != null) 'contactPerson': input.contactPerson,
+      if (input.emailAddress != null) 'emailAddress': input.emailAddress,
+      if (input.expectedCloseDate != null)
+        'expectedCloseDate': input.expectedCloseDate,
+      if (input.coverageStatus != null) 'coverageStatus': input.coverageStatus,
+      if (input.documentStatus != null) 'documentStatus': input.documentStatus,
+      if (input.notes != null) 'notes': input.notes,
     };
 
     final response = await authService.authenticatedPost(
-      AppConfig.apiUri('/mobile/v1/messages/$messageId/create-sales'),
+      AppConfig.apiUri('/sales/orders'),
       body: jsonEncode(payload),
     );
     final decoded = _decodeObject(response.body);
@@ -1689,8 +1767,34 @@ class InboxService {
       );
     }
 
+    final salesLink = MessageSalesLink.fromJson(data);
+    if (salesLink.id.isEmpty) {
+      throw const InboxServiceException(
+        'Created sales order was not recognized.',
+      );
+    }
+
+    final itemPayload = <String, dynamic>{
+      'productType': input.productType,
+      'packageName': input.packageName,
+      'unitPrice': input.unitPrice,
+      'quantity': input.quantity,
+    };
+    final itemResponse = await authService.authenticatedPost(
+      AppConfig.apiUri('/sales/orders/${salesLink.id}/items'),
+      body: jsonEncode(itemPayload),
+    );
+    final itemDecoded = _decodeObject(itemResponse.body);
+
+    if (itemResponse.statusCode < 200 || itemResponse.statusCode >= 300) {
+      throw InboxServiceException(
+        _extractError(itemDecoded),
+        code: _extractErrorCode(itemDecoded),
+      );
+    }
+
     _conversationCache.clear();
-    return MessageSalesLink.fromJson(data);
+    return salesLink;
   }
 
   void cacheSalesMetadata({
@@ -1862,6 +1966,22 @@ class InboxService {
     );
   }
 
+  InboxConversation _reconcileConversationSalesOverride(
+    InboxConversation conversation,
+  ) {
+    final override = _conversationSalesOverrides[conversation.id];
+    if (override == null) return conversation;
+
+    if (!conversation.hasSales ||
+        conversation.salesId != null ||
+        conversation.salesStatus != null ||
+        conversation.salesLabel != null) {
+      _conversationSalesOverrides.remove(conversation.id);
+    }
+
+    return conversation;
+  }
+
   InboxMessage _applyMessageSalesOverride(InboxMessage message) {
     final override = _messageSalesOverrides[message.id];
     if (override == null) return message;
@@ -1871,6 +1991,20 @@ class InboxService {
       salesStatus: override.status,
       salesLabel: override.label,
     );
+  }
+
+  InboxMessage _reconcileMessageSalesOverride(InboxMessage message) {
+    final override = _messageSalesOverrides[message.id];
+    if (override == null) return message;
+
+    if (!message.hasSales ||
+        message.salesId != null ||
+        message.salesStatus != null ||
+        message.salesLabel != null) {
+      _messageSalesOverrides.remove(message.id);
+    }
+
+    return message;
   }
 
   Future<void> _waitBeforeReconnect(
