@@ -1,15 +1,18 @@
 class AppConfig {
   const AppConfig._();
 
+  static const androidApplicationId = 'my.rezeki.dashboard';
+  static const mobileAuthCallbackScheme = androidApplicationId;
+
   static final apiBaseUrl = _normalizeBaseUrl(
     const String.fromEnvironment(
-    'REZEKI_API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:4000/api',
+      'REZEKI_API_BASE_URL',
+      defaultValue: 'http://10.0.2.2:4000/api',
     ),
   );
 
   static const mobileAuthCallbackUrl =
-      'com.example.rezeki_dashboard_app://login-callback/';
+      '$mobileAuthCallbackScheme://login-callback/';
 
   /// OAuth web client ID used by Google Sign-In and backend ID token exchange.
   static const googleServerClientId = String.fromEnvironment(

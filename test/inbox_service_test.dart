@@ -169,6 +169,21 @@ void main() {
       );
     });
 
+    test('recent check uses timelineAt instead of provider sentAt', () {
+      final now = DateTime.parse('2026-06-01T09:03:00.000Z').toLocal();
+      final message = InboxMessage.fromJson({
+        'id': 'message-recent',
+        'direction': 'outgoing',
+        'message_type': 'text',
+        'content_text': 'Queued send',
+        'sentAt': '2026-06-01T08:00:00.000Z',
+        'createdAt': '2026-06-01T09:00:00.000Z',
+        'sortAt': '2026-06-01T09:00:00.000Z',
+      });
+
+      expect(message.isRecentAt(now), isTrue);
+    });
+
     test('reads reply and sales metadata from camelCase payload', () {
       final message = InboxMessage.fromJson({
         'id': 'message-5',

@@ -340,6 +340,15 @@ class InboxMessage {
   bool get isSystem => direction == 'system';
   DateTime? get timelineAt => sortAt ?? sentAt ?? createdAt;
 
+  bool isRecentAt(
+    DateTime now, {
+    Duration window = const Duration(minutes: 5),
+  }) {
+    final timestamp = timelineAt;
+    if (timestamp == null) return true;
+    return now.difference(timestamp).abs() <= window;
+  }
+
   InboxMessage copyWith({
     String? direction,
     String? messageType,
@@ -1721,34 +1730,14 @@ class InboxService {
     String? contactId,
     required CreateMessageSalesInput input,
   }) async {
-    final resolvedContactId = contactId?.trim();
-    if (resolvedContactId == null || resolvedContactId.isEmpty) {
-      throw const InboxServiceException(
-        'This conversation has no contact ID for sales creation.',
-        code: 'contact_required',
-      );
-    }
-
     final payload = <String, dynamic>{
-      'contactId': resolvedContactId,
       'status': input.status,
-      'totalAmount': input.totalAmount,
-      'currency': input.currency.trim().isEmpty ? 'MYR' : input.currency.trim(),
-      'sourceMessageId': messageId,
-      'sourceConversationId': conversationId,
-      if (input.premiseAddress != null) 'premiseAddress': input.premiseAddress,
-      if (input.businessType != null) 'businessType': input.businessType,
-      if (input.contactPerson != null) 'contactPerson': input.contactPerson,
-      if (input.emailAddress != null) 'emailAddress': input.emailAddress,
-      if (input.expectedCloseDate != null)
-        'expectedCloseDate': input.expectedCloseDate,
-      if (input.coverageStatus != null) 'coverageStatus': input.coverageStatus,
-      if (input.documentStatus != null) 'documentStatus': input.documentStatus,
-      if (input.notes != null) 'notes': input.notes,
+      if (input.notes != null && input.notes!.trim().isNotEmpty)
+        'notes': input.notes!.trim(),
     };
 
     final response = await authService.authenticatedPost(
-      AppConfig.apiUri('/sales/orders'),
+      AppConfig.apiUri('/mobile/v1/messages/$messageId/create-sales'),
       body: jsonEncode(payload),
     );
     final decoded = _decodeObject(response.body);
@@ -1771,25 +1760,6 @@ class InboxService {
     if (salesLink.id.isEmpty) {
       throw const InboxServiceException(
         'Created sales order was not recognized.',
-      );
-    }
-
-    final itemPayload = <String, dynamic>{
-      'productType': input.productType,
-      'packageName': input.packageName,
-      'unitPrice': input.unitPrice,
-      'quantity': input.quantity,
-    };
-    final itemResponse = await authService.authenticatedPost(
-      AppConfig.apiUri('/sales/orders/${salesLink.id}/items'),
-      body: jsonEncode(itemPayload),
-    );
-    final itemDecoded = _decodeObject(itemResponse.body);
-
-    if (itemResponse.statusCode < 200 || itemResponse.statusCode >= 300) {
-      throw InboxServiceException(
-        _extractError(itemDecoded),
-        code: _extractErrorCode(itemDecoded),
       );
     }
 

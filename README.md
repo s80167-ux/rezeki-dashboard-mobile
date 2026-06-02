@@ -37,9 +37,9 @@ If you only need to run the Flutter UI without the backend, add `set "REZEKI_SKI
 
 Native Google Sign-In must have an Android OAuth client in the same Google Cloud project as the web client used by `REZEKI_GOOGLE_SERVER_CLIENT_ID`.
 
-For the current debug app build, register:
+For the current Android package, register:
 
-- Package name: `com.example.rezeki_dashboard_app`
+- Package name: `my.rezeki.dashboard`
 - SHA-1: `52:3B:6D:63:1A:D3:8B:BD:20:8B:57:20:B6:A1:2D:99:E2:53:25:5B`
 - SHA-256: `95:9D:13:DC:74:D1:CE:BC:CC:99:B8:15:4A:E8:50:4E:B9:D3:2B:DF:22:30:8F:1F:71:E3:9A:4D:B5:8F:81:70`
 
@@ -73,6 +73,10 @@ Then check the backend and run the app:
 .\check_backend.bat
 .\run_prod.bat
 ```
+
+## Android Release
+
+Android release packaging, launcher icon generation, signing setup, and smoke-test steps are documented in [RELEASE.md](RELEASE.md).
 
 ## Getting Started
 

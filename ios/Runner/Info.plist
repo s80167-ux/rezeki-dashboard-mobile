@@ -60,7 +60,7 @@
 			<string>auth_callback</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.example.rezeki_dashboard_app</string>
+				<string>my.rezeki.dashboard</string>
 			</array>
 		</dict>
 	</array>

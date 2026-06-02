@@ -70,7 +70,10 @@ class CrmContact {
       notes: _nullableString(json['notes']),
       sourceLabels: sourceLabels,
       avatarUrl: _nullableString(
-        json['primary_avatar_url'] ?? json['primaryAvatarUrl'],
+        json['avatarUrl'] ??
+            json['avatar_url'] ??
+            json['primary_avatar_url'] ??
+            json['primaryAvatarUrl'],
       ),
       displayName: displayName,
     );

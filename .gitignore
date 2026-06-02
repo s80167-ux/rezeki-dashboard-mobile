@@ -49,3 +49,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/.kotlin/
+
+# Local Android signing files
+/android/key.properties
+/android/app/*.jks
+/android/app/*.keystore

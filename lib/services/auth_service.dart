@@ -397,7 +397,7 @@ class AuthService {
   }
 
   Future<void> _handleAuthCallback(Uri uri) async {
-    if (uri.scheme != 'com.example.rezeki_dashboard_app' ||
+    if (uri.scheme != AppConfig.mobileAuthCallbackScheme ||
         uri.host != 'login-callback') {
       return;
     }

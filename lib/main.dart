@@ -220,12 +220,19 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
                           width: 240,
                           height: 140,
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.12),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: const [
+                                Color(0xFFF4F7FF),
+                                Color(0xFFDCE7FF),
+                              ],
+                            ),
                             borderRadius: BorderRadius.circular(
                               RezekiRadii.card,
                             ),
                             border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.2),
+                              color: Colors.white.withValues(alpha: 0.72),
                             ),
                             boxShadow: RezekiTheme.glowShadow,
                           ),
@@ -402,7 +409,8 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
                               style: TextStyle(fontWeight: FontWeight.w600),
                             ),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white,
+                              backgroundColor: Colors.white,
+                              foregroundColor: AppColors.primaryDark,
                               side: BorderSide(
                                 color: Colors.white.withValues(alpha: 0.3),
                               ),
@@ -499,13 +507,21 @@ class _GlassInput extends StatelessWidget {
         onSubmitted: onSubmitted,
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
+          filled: true,
+          fillColor: Colors.transparent,
           labelText: label,
           hintText: hint,
-          labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+          labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.82)),
+          floatingLabelStyle: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
           hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
           prefixIcon: Icon(prefixIcon, color: Colors.white70),
           suffixIcon: suffix,
           border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 14,
@@ -1339,7 +1355,9 @@ class MorePage extends StatelessWidget {
               Container(
                 decoration: BoxDecoration(
                   gradient: RezekiTheme.tealPurpleGradient,
-                  borderRadius: BorderRadius.all(Radius.circular(RezekiRadii.card)),
+                  borderRadius: BorderRadius.all(
+                    Radius.circular(RezekiRadii.card),
+                  ),
                   boxShadow: RezekiTheme.elevatedShadow,
                 ),
                 child: Padding(
@@ -1407,37 +1425,37 @@ class MorePage extends StatelessWidget {
                 child: Column(
                   children: [
                     _MoreMenuTile(
-                      icon: Icons.settings_outlined,
-                      label: 'Settings',
-                      onTap: () => Navigator.of(
-                        context,
-                      ).push(FadeThroughPageRoute(page: const SettingsPage())),
-                    )
+                          icon: Icons.settings_outlined,
+                          label: 'Settings',
+                          onTap: () => Navigator.of(context).push(
+                            FadeThroughPageRoute(page: const SettingsPage()),
+                          ),
+                        )
                         .animate()
                         .fadeIn(delay: 100.ms, duration: 400.ms)
                         .slideY(begin: 0.1, end: 0, duration: 400.ms),
                     _MoreMenuTile(
-                      icon: Icons.support_agent_outlined,
-                      label: 'Help / Support',
-                      onTap: () => _showComingSoon(context),
-                    )
+                          icon: Icons.support_agent_outlined,
+                          label: 'Help / Support',
+                          onTap: () => _showComingSoon(context),
+                        )
                         .animate()
                         .fadeIn(delay: 200.ms, duration: 400.ms)
                         .slideY(begin: 0.1, end: 0, duration: 400.ms),
                     _MoreMenuTile(
-                      icon: Icons.info_outline,
-                      label: 'About App',
-                      onTap: () => _showAboutDialog(context),
-                    )
+                          icon: Icons.info_outline,
+                          label: 'About App',
+                          onTap: () => _showAboutDialog(context),
+                        )
                         .animate()
                         .fadeIn(delay: 300.ms, duration: 400.ms)
                         .slideY(begin: 0.1, end: 0, duration: 400.ms),
                     _MoreMenuTile(
-                      icon: Icons.logout_outlined,
-                      label: 'Logout',
-                      destructive: true,
-                      onTap: () => _logout(context),
-                    )
+                          icon: Icons.logout_outlined,
+                          label: 'Logout',
+                          destructive: true,
+                          onTap: () => _logout(context),
+                        )
                         .animate()
                         .fadeIn(delay: 400.ms, duration: 400.ms)
                         .slideY(begin: 0.1, end: 0, duration: 400.ms),
@@ -2270,9 +2288,7 @@ class _InboxThreadPageState extends State<InboxThreadPage> {
       final hasSentMessage = messages.any((message) {
         if (!message.isOutgoing) return false;
         if (message.contentText.trim() != normalizedText) return false;
-        final sentAt = message.sentAt;
-        if (sentAt == null) return true;
-        return now.difference(sentAt).abs() <= const Duration(minutes: 5);
+        return message.isRecentAt(now);
       });
 
       if (!hasSentMessage || !mounted) return false;
@@ -3602,7 +3618,7 @@ class SettingsPage extends StatelessWidget {
                         _SettingsRow(
                           icon: Icons.phone_android_outlined,
                           label: 'Package',
-                          value: 'com.example.rezeki_dashboard_app',
+                          value: AppConfig.androidApplicationId,
                         ),
                         _SettingsRow(
                           icon: Icons.info_outline,
@@ -3917,83 +3933,87 @@ class _LeadCard extends StatelessWidget {
     final accentColor = _statusColors(status).fg;
 
     return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(RezekiRadii.card),
-        boxShadow: RezekiTheme.elevatedShadow,
-      ),
-      child: Card(
-        margin: EdgeInsets.zero,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(RezekiRadii.card),
-          onTap: onTap,
-          child: Stack(
-            children: [
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                child: Container(
-                  width: 4,
-                  color: accentColor,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
-                child: Row(
-                  children: [
-                    _Avatar(
-                      initial: displayName.isEmpty ? '?' : displayName[0],
-                      imageUrl: contact?.avatarUrl,
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            displayName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: AppColors.textPrimary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            phone,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(RezekiRadii.card),
+            boxShadow: RezekiTheme.elevatedShadow,
+          ),
+          child: Card(
+            margin: EdgeInsets.zero,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(RezekiRadii.card),
+              onTap: onTap,
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(width: 4, color: accentColor),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+                    child: Row(
+                      children: [
+                        _Avatar(
+                          initial: displayName.isEmpty ? '?' : displayName[0],
+                          imageUrl: contact?.avatarUrl,
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _StatusChip(
-                                label: status,
-                                colors: _statusColors(status),
+                              Text(
+                                displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      color: AppColors.textPrimary,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                               ),
-                              _TagChip(label: tag),
+                              const SizedBox(height: 4),
+                              Text(
+                                phone,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                children: [
+                                  _StatusChip(
+                                    label: status,
+                                    colors: _statusColors(status),
+                                  ),
+                                  _TagChip(label: tag),
+                                ],
+                              ),
                             ],
                           ),
-                        ],
-                      ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right,
+                          color: AppColors.textTertiary,
+                        ),
+                      ],
                     ),
-                    const Icon(Icons.chevron_right, color: AppColors.textTertiary),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
-    ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.05, end: 0, duration: 400.ms);
+        )
+        .animate()
+        .fadeIn(duration: 400.ms)
+        .slideX(begin: -0.05, end: 0, duration: 400.ms);
   }
 
   String? _usablePhone(String? value) {
@@ -4776,8 +4796,12 @@ class _CreateMessageSalesSheetState extends State<_CreateMessageSalesSheet> {
   }
 
   void _submit() {
-    final unitPrice = double.tryParse(_unitPriceController.text.trim());
-    final quantity = int.tryParse(_quantityController.text.trim());
+    final rawUnitPrice = _unitPriceController.text.trim();
+    final rawQuantity = _quantityController.text.trim();
+    final double? unitPrice = rawUnitPrice.isEmpty
+        ? 0
+        : double.tryParse(rawUnitPrice);
+    final quantity = rawQuantity.isEmpty ? 1 : int.tryParse(rawQuantity);
 
     if (unitPrice == null || !unitPrice.isFinite || unitPrice < 0) {
       setState(() {
@@ -5836,8 +5860,9 @@ class _ContactDetailHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final statusColors = RezekiTheme.statusColors(contact.status);
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(4, 4, 12, 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(
@@ -5845,44 +5870,87 @@ class _ContactDetailHeader extends StatelessWidget {
         ),
         boxShadow: RezekiTheme.softShadow,
       ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.textSecondary),
-            tooltip: 'Back',
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          _Avatar(initial: contact.name[0], imageUrl: contact.avatarUrl),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  contact.name,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+      child: SafeArea(
+        bottom: false,
+        child: Stack(
+          children: [
+            // Top actions
+            Positioned(
+              top: 4,
+              left: 4,
+              child: IconButton(
+                icon: const Icon(
+                  Icons.arrow_back,
+                  color: AppColors.textSecondary,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  contact.phone,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+                tooltip: 'Back',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
-            tooltip: 'Edit Contact',
-            onPressed: onEdit,
-          ),
-        ],
+            Positioned(
+              top: 4,
+              right: 4,
+              child: IconButton(
+                icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+                tooltip: 'Edit Contact',
+                onPressed: onEdit,
+              ),
+            ),
+            // Centered profile hero
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 56, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _Avatar(
+                    initial: contact.name.isEmpty ? '?' : contact.name[0],
+                    imageUrl: contact.avatarUrl,
+                    size: 110,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    contact.name,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    contact.phone,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColors.bg,
+                      borderRadius: BorderRadius.circular(RezekiRadii.badge),
+                    ),
+                    child: Text(
+                      contact.status,
+                      style: TextStyle(
+                        color: statusColors.fg,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -6508,162 +6576,169 @@ class _MessageCard extends StatelessWidget {
     final accentColor = isUnread
         ? AppColors.primary
         : hasSales
-            ? _statusColors(salesStatus ?? salesLabel ?? 'Sales').fg
-            : AppColors.border.withValues(alpha: 0.5);
+        ? _statusColors(salesStatus ?? salesLabel ?? 'Sales').fg
+        : AppColors.border.withValues(alpha: 0.5);
 
     return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(RezekiRadii.card),
-        boxShadow: RezekiTheme.elevatedShadow,
-      ),
-      child: Card(
-        margin: EdgeInsets.zero,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(RezekiRadii.card),
-          onTap: onTap,
-          child: Stack(
-            children: [
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                child: Container(
-                  width: 4,
-                  color: accentColor,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
-                child: Row(
-                  children: [
-                    _Avatar(initial: name[0], imageUrl: avatarUrl, size: 56),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(RezekiRadii.card),
+            boxShadow: RezekiTheme.elevatedShadow,
+          ),
+          child: Card(
+            margin: EdgeInsets.zero,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(RezekiRadii.card),
+              onTap: onTap,
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(width: 4, color: accentColor),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+                    child: Row(
+                      children: [
+                        _Avatar(
+                          initial: name[0],
+                          imageUrl: avatarUrl,
+                          size: 56,
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  name,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: isUnread
-                                        ? FontWeight.w700
-                                        : FontWeight.w600,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              Text(
-                                time,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: isUnread
-                                      ? FontWeight.w600
-                                      : FontWeight.w400,
-                                  color: isUnread
-                                      ? AppColors.primary
-                                      : AppColors.textTertiary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          if (sourceLabel != null && sourceLabel!.isNotEmpty) ...[
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 6,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.account_tree_outlined,
-                                      size: 13,
-                                      color: AppColors.textTertiary,
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      name,
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: isUnread
+                                            ? FontWeight.w700
+                                            : FontWeight.w600,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      sourceLabel!,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.textTertiary,
-                                        fontWeight: FontWeight.w600,
+                                  ),
+                                  Text(
+                                    time,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: isUnread
+                                          ? FontWeight.w600
+                                          : FontWeight.w400,
+                                      color: isUnread
+                                          ? AppColors.primary
+                                          : AppColors.textTertiary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              if (sourceLabel != null &&
+                                  sourceLabel!.isNotEmpty) ...[
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 6,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.account_tree_outlined,
+                                          size: 13,
+                                          color: AppColors.textTertiary,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          sourceLabel!,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.textTertiary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    if (hasSales)
+                                      _SalesIndicatorChip(
+                                        label:
+                                            salesLabel ??
+                                            _normalizeStatus(
+                                              salesStatus ?? 'Sales',
+                                            ),
+                                        status: salesStatus ?? salesLabel,
+                                        compact: true,
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                              ],
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      message,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: isUnread
+                                            ? FontWeight.w500
+                                            : FontWeight.w400,
+                                        color: isUnread
+                                            ? AppColors.textPrimary
+                                            : AppColors.textSecondary,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (unreadCount > 0) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.warning,
+                                        borderRadius: BorderRadius.circular(
+                                          RezekiRadii.badge,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        '$unreadCount',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                       ),
                                     ),
                                   ],
-                                ),
-                                if (hasSales)
-                                  _SalesIndicatorChip(
-                                    label:
-                                        salesLabel ??
-                                        _normalizeStatus(salesStatus ?? 'Sales'),
-                                    status: salesStatus ?? salesLabel,
-                                    compact: true,
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                          ],
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  message,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: isUnread
-                                        ? FontWeight.w500
-                                        : FontWeight.w400,
-                                    color: isUnread
-                                        ? AppColors.textPrimary
-                                        : AppColors.textSecondary,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                                ],
                               ),
-                              if (unreadCount > 0) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.warning,
-                                    borderRadius: BorderRadius.circular(
-                                      RezekiRadii.badge,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    '$unreadCount',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ],
                             ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
-    ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.05, end: 0, duration: 400.ms);
+        )
+        .animate()
+        .fadeIn(duration: 400.ms)
+        .slideX(begin: -0.05, end: 0, duration: 400.ms);
   }
 }
 
@@ -6868,90 +6943,100 @@ class _ContactCard extends StatelessWidget {
     final accentColor = statusColors.fg;
 
     return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(RezekiRadii.card),
-        boxShadow: RezekiTheme.elevatedShadow,
-      ),
-      child: Card(
-        margin: EdgeInsets.zero,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(RezekiRadii.card),
-          onTap: onTap,
-          child: Stack(
-            children: [
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                child: Container(
-                  width: 4,
-                  color: accentColor,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
-                child: Row(
-                  children: [
-                    _Avatar(initial: name[0], imageUrl: avatarUrl),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            name,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.phone_outlined,
-                                size: 14,
-                                color: AppColors.textTertiary,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  phone,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: AppColors.textSecondary,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
-                            children: [
-                              _StatusChip(label: status, colors: statusColors),
-                              _TagChip(label: tag),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.chevron_right, color: AppColors.textTertiary),
-                  ],
-                ),
-              ),
-            ],
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(RezekiRadii.card),
+            boxShadow: RezekiTheme.elevatedShadow,
           ),
-        ),
-      ),
-    ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.05, end: 0, duration: 400.ms);
+          child: Card(
+            margin: EdgeInsets.zero,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(RezekiRadii.card),
+              onTap: onTap,
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(width: 4, color: accentColor),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+                    child: Row(
+                      children: [
+                        _Avatar(
+                          initial: name[0],
+                          imageUrl: avatarUrl,
+                          size: 56,
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.phone_outlined,
+                                    size: 14,
+                                    color: AppColors.textTertiary,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      phone,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: AppColors.textSecondary,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                children: [
+                                  _StatusChip(
+                                    label: status,
+                                    colors: statusColors,
+                                  ),
+                                  _TagChip(label: tag),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right,
+                          color: AppColors.textTertiary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        )
+        .animate()
+        .fadeIn(duration: 400.ms)
+        .slideX(begin: -0.05, end: 0, duration: 400.ms);
   }
 }
 
@@ -6980,12 +7065,7 @@ class _Avatar extends StatelessWidget {
         borderRadius: const BorderRadius.all(
           Radius.circular(RezekiRadii.avatar),
         ),
-        border: hasImage
-            ? Border.all(
-                color: Colors.white,
-                width: 2.5,
-              )
-            : null,
+        border: hasImage ? Border.all(color: Colors.white, width: 2.5) : null,
         boxShadow: hasImage ? RezekiTheme.softShadow : null,
       ),
       child: ClipRRect(
@@ -7000,12 +7080,7 @@ class _Avatar extends StatelessWidget {
                 headers: token != null && token.isNotEmpty
                     ? {'Authorization': 'Bearer $token'}
                     : null,
-                frameBuilder: (
-                  context,
-                  child,
-                  frame,
-                  wasSynchronouslyLoaded,
-                ) {
+                frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
                   if (wasSynchronouslyLoaded || frame != null) {
                     return child;
                   }
