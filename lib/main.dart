@@ -15,7 +15,7 @@ import 'services/quick_replies_service.dart';
 import 'theme/rezeki_theme.dart';
 
 // =============================================================================
-// Rezeki Dashboard - WhatsApp CRM for PMKS/SMEs
+// Rezeki Dashboard - Kempen Digital Untuk PMKS
 // Backend Auth Integration (existing WhatsApp CRM v2 API)
 // =============================================================================
 
@@ -254,7 +254,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
                     const SizedBox(height: 8),
                     // Tagline
                     Text(
-                      'Kempen Digital untuk PMKS',
+                      'Kempen Digital Untuk PMKS',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: AppColors.textSecondary,
                         fontWeight: FontWeight.w500,
@@ -1305,14 +1305,17 @@ class MorePage extends StatelessWidget {
   }
 
   Future<void> _showAboutDialog(BuildContext context) async {
-    final releaseLabel = await AppVersion.releaseLabel();
-    if (!context.mounted) return;
-
     return showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Rezeki Dashboard'),
-        content: Text('Kempen Digital Untuk PMKS\n$releaseLabel'),
+        content: FutureBuilder<String>(
+          future: AppVersion.releaseLabel(),
+          builder: (context, snapshot) {
+            final releaseLabel = snapshot.data ?? 'Release ...';
+            return Text('Kempen Digital Untuk PMKS\n$releaseLabel');
+          },
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),

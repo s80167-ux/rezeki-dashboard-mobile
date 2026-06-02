@@ -13,7 +13,7 @@ void main() {
 
     // Verify that login page elements are present.
     expect(find.text('Rezeki Dashboard'), findsOneWidget);
-    expect(find.text('Kempen Digital untuk PMKS'), findsOneWidget);
+    expect(find.text('Kempen Digital Untuk PMKS'), findsOneWidget);
     expect(find.text('Login'), findsOneWidget);
   });
 }
